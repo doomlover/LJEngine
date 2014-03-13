@@ -1,0 +1,21 @@
+Parameters {
+	Bool DrawSkyBox 0
+	Float Material.Eta 1.3
+	Float Material.ReflectionFactor 0.3
+	TextureCube cubeMap Assets/Textures/negz.png
+	              		Assets/Textures/negz.png
+	              		Assets/Textures/negz.png
+	              		Assets/Textures/negz.png
+	              		Assets/Textures/negz.png
+	              		Assets/Textures/negz.png
+}
+
+Technique Tech0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/cube_map.vert
+		fs = Assets/Shaders/cube_map.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}

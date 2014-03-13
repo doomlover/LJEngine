@@ -1,0 +1,22 @@
+Parameters {
+	Vector3 light.position -100 100 0
+	Vector3 light.intensity 2.0 2.0 2.0
+	
+	Vector3 material.kd 0.7 0.7 0.7
+	Vector3 material.ka 0.2 0.2 0.2
+	Vector3 material.ks 1.0 1.0 1.0
+	Int material.exp 50
+	
+	Vector3 Color 0.5 0.5 0.5
+	Texture2D diffuseMap Assets/Textures/diffuse.DDS
+}
+
+Technique Tec0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/generic.vert
+		fs = Assets/Shaders/phong_light.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}

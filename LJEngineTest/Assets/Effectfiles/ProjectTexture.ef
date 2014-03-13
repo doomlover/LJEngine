@@ -1,0 +1,13 @@
+Parameters {
+	Texture2D projectMap Assets/Textures/negz.png
+}
+
+Technique Tec0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/phong_light_proj.vert
+		fs = Assets/Shaders/phong_light_proj.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}

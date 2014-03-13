@@ -1,0 +1,18 @@
+Parameters {
+	TextureCube cubeMap Assets/Textures/diffuse.DDS
+	              		Assets/Textures/diffuse.DDS
+	              		Assets/Textures/diffuse.DDS
+	              		Assets/Textures/diffuse.DDS
+	              		Assets/Textures/diffuse.DDS
+	              		Assets/Textures/diffuse.DDS
+}
+
+Technique Tech0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/cube_map.vert
+		fs = Assets/Shaders/cube_map.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}
