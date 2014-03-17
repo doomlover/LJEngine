@@ -1,7 +1,7 @@
 LJEngine
 ========
 
-学习OpenGL渲染和游戏引擎技术的个人项目。由OpenGL3.3+及C++编写。支持着色器，不支持固定管线，支持光照，多通道渲染，Effect File。由四部分组成，分别为LJRenderer，LJOpenGL，LJMath，LJGeneral。
+由OpenGL3.3+及C++编写。支持着色器，不支持固定管线，支持光照，多通道渲染，Effect File。由四部分组成，分别为LJRenderer，LJOpenGL，LJMath，LJGeneral。
 
 LJRenderer
 
