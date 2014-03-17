@@ -5,7 +5,7 @@ LJEngine
 
 LJRenderer
 
-设备接口声明。
+设备接口声明，引擎加载例程。
 
 LJOpenGL
 
