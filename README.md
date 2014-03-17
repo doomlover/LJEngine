@@ -18,3 +18,7 @@ LJMath
 LJGeneral
 
 包含所有与具体图形API无关的引擎组件。材质，纹理，场景图，Mesh，运动控制，摄像机等。
+
+测试
+
+暂时使用glfw进行窗口管理，配置OpenGL profile和接受事件。使用glfw的定时器实现引擎定时器接口。Frame Listener同样基于glfw实现。
