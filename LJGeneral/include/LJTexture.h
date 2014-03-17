@@ -4,9 +4,21 @@
 #include "LJGeneralHeaders.h"
 #include "LJTextureManager.h"
 #include <vector>
-using std::vector;
 #include <string>
+#include <map>
+using std::vector;
 using std::string;
+using std::map;
+
+typedef enum _TextureFormat
+{
+	LJ_RGB,
+	LJ_BGR,
+	LJ_RGBA,
+	LJ_BGRA,
+	LJ_DEPTH_COMPONENT,
+	LJ_INVALID_FORMAT
+} TextureFormat;
 
 typedef enum LJTEXTARGET_TYPE{
 		LJ_TEXTURE_2D = 0,
@@ -57,7 +69,7 @@ typedef vector<string> ImageList;
 class _LJExport LJTexture
 {
 public:
-	typedef vector<LJTEXPARAMCONF> LJTEXPARAMCONFS;
+	typedef map<LJTEXPNAME, LJTEXPARAM> LJTEXPARAMCONFS;
 
 	LJTexture();
 	/*
@@ -91,8 +103,6 @@ public:
 	void SetName(const char* name);
 	const char* GetName() const;
 
-	void SetDefaultParams();
-
 	LJTexture& operator=(const LJTexture& tex);
 
 	static LJTEXPARAMCONFS m_DefaultParams;
@@ -110,7 +120,7 @@ protected :
 	string *m_pName;
 
 	void init();
-
+	void copy(const LJTexture& tex);
 	static LJTEXPARAMCONFS InitDefaultParams();
 };
 

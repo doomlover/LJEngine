@@ -40,6 +40,7 @@ public:
 
 	LJRenderManager *RenderManager;
 	LJMaterialManager *MaterialManager;
+	LJTextureManager *TextureManager;
 	LJRenderDevice *m_pDevice;
 	int WindowWidth;
 	int WindowHeight;

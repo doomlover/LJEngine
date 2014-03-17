@@ -35,6 +35,8 @@ void LJOGLVCache::SetMaterial(int nMatID)
 
 HRESULT LJOGLVCache::Flush(bool bUseShaders)
 {
+	if(m_pGeometrys->size() == 0)
+		return LJ_OK;
 	// Notice: bUseShaders is ignored for now. We always use shader.
 	if(LJFailed(m_pDevice->ApplyMaterial(m_nMaterialID)))
 	{

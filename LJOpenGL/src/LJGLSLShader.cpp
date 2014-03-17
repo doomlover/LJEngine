@@ -7,8 +7,9 @@ const UINT LJGLSLShader::ShaderType[2] = {GL_VERTEX_SHADER,GL_FRAGMENT_SHADER};
 
 LJGLSLShader::LJGLSLShader():
 	m_uHandle(-1),
-	m_bCompiled(false),
-	m_uType(LJ_VERTEX_SHADER)
+	m_uType(LJ_VERTEX_SHADER),
+	m_bCompiled(false)
+
 {
 }
 

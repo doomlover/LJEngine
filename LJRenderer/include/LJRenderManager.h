@@ -2,7 +2,7 @@
 #define LJVERTEXCACHEMANAGER
 
 class LJSpatial;
-class LJViewPort;
+class LJRenderPass;
 
 /*
  * Render Manager Interface
@@ -19,6 +19,6 @@ public:
 	/* render geometry to the render list */
 	virtual HRESULT Render(LJSpatial& scene) = 0;
 	/* Create a view-port */
-	virtual LJViewPort* CreateViewPort() = 0;
+	virtual LJRenderPass* CreateRenderPass() = 0;
 };
 #endif

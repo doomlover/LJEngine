@@ -9,10 +9,10 @@
 #define LJOPENGL_H_
 
 #include <GL/glew.h>
-#include "LJRendererHeaders.h"
 #include "LJRenderDevice.h"
 #include "LJPass.h"
 #include "LJMaterial.h"
+#include "LJOGLFramebuffer.h"
 
 class LJRenderManager;
 class LJOGLTextureManager;
@@ -22,6 +22,7 @@ class LJInterTextureManager;
 class LJGLSLProgram;
 class LJProgramManager;
 class LJImageManager;
+class LJOGLTextureManager;
 
 class LJOpenGL : public LJRenderDevice
 {
@@ -29,7 +30,7 @@ public:
 	LJOpenGL(void);
 	~LJOpenGL(void);
 
-	HRESULT Init(HWND, const HWND*, int, int, int, bool);
+	HRESULT Init(HWND, const HWND*, int, int, int, bool, int winWidth, int winHeight);
 	void Release(void);
 	bool IsRunning(void){ return m_bRunning; }
 	HRESULT BeginRendering(bool, bool, bool);
@@ -37,8 +38,13 @@ public:
 	void EndRendering(void);
 	void SetClearColor(float, float, float);
 	HRESULT UseWindow(UINT nHwnd);
+
 	LJRenderManager* GetRenderManager(void);
+
 	LJMaterialManager* GetMaterialManager(void)const;
+
+	LJTextureManager* GetTextureManager();
+
 	LJProgramManager* GetInterProgManager(void)const;
 
 	// Set camera setting with Right, Up, Direction, Position
@@ -47,19 +53,12 @@ public:
 	void SetCamera(const LJVector3& v3Pos, const LJVector3& v3Lookat, const LJVector3 v3Up);
 	// Directly set
 	void SetCamera(LJMatrix4& viewMatrix);
-
-	// All stage use same Near clip plane and Far clip plane
-	void SetNearFarClip(float fNear, float fFar);
-	// Set from field of view
-	void InitStage(float fFov, float fAspRatio, LJSTAGE stage);
-	// Set from Right, Left, Top, Bottom clip planes
-	void InitStage(float fL, float fR, float fT, float fB, LJSTAGE stage);
-	// Directly set
-	void InitStage(LJMatrix4& persMatrix, LJMatrix4& orthMatrix, LJSTAGE stage);
+	// set projection, both perspective matrix and orthogonal matrix are calculated. Use SetMode to choose mode
+	void SetPerspective(float fFov, float fAspect, float fNear, float fFar);
 	// Set stage View-Port
-	void SetViewport(LJSTAGE stage, LJVIEWPORT& viewport);
+	void SetViewport(LJVIEWPORT& viewport);
 	// Set mode and stage
-	HRESULT UseStage(LJDIMENSIONMODE mode, LJSTAGE nStage);
+	void SetMode(LJDIMENSIONMODE mode);
 	/* Set Local-to-World Matrix */
 	void SetWorldMatrix(LJMatrix4& matWorld);
 	// Extracting Frustum planes
@@ -68,12 +67,6 @@ public:
 	void ScreenToWorld(const LJVector2& sPos, LJVector3& wPos);
 	// Transform world coordinates to screen space
 	void WorldToScreen(const LJVector3& wPos, LJVector2& sPos);
-	// set window size
-	void SetWindowSize(int nWidth, int nHeight);
-	/* Draw a mesh */
-	HRESULT RenderMesh(LJMesh& mesh);
-	/* Setup a texture */
-	HRESULT ApplyTexture(LJTexture& tex, int texUnit);
 	/* Get World Matrix */
 	LJMatrix4 GetWorldMatrix();
 	/* Get View Matrix 3D */
@@ -81,32 +74,41 @@ public:
 	/* Get View Matrix 2D */
 	LJMatrix4 GetViewMatrix2D();
 	/* Get Projection Matrix */
-	LJMatrix4 GetProjectionMatrix(LJDIMENSIONMODE mode, LJSTAGE nStage);
+	LJMatrix4 GetProjectionMatrix(LJDIMENSIONMODE mode);
 	/* Get View Projection Matrix */
 	LJMatrix4 GetViewProjectionMatrix();
 	/* Get World View Projection Matrix */
 	LJMatrix4 GetWorldViewProjectionMatrix();
 	/* bound GPU program */
 	void BoundGpuProgram(LJGLSLProgram *program);
+	/* Setup framebuffer */
+	void SetFramebuffer(LJFramebuffer& fb, UINT renderPassIndex);
 	/* Setup Render State */
 	void ApplyRenderState(const LJRenderState& renderState);
+	/* Setup a texture */
+	HRESULT ApplyTexture(LJTexture& tex, int texUnit);
 	/* Setup material */
 	HRESULT ApplyMaterial(int nMaterial);
+	/* Setup render texture for off-screen rendering */
+	void ApplyRenderTexture(LJRenderTexture& tex, UINT attachPoint);
+	/* Setup render texture for depth rendering */
+	bool ApplyDepthTexture(LJRenderTexture& depth, UINT unit);
 	/* render a geometry */
 	HRESULT RenderGeometry(LJGeometry& geo);
+	/* Draw a mesh */
+	HRESULT RenderMesh(LJMesh& mesh);
 
 	static GLenum DEVICE_RENDER_STATE_VALUE[35];
 	static GLenum GLPNAME[7];
 	static GLint GLPARAM[12];
 	static GLenum GLTYPE[7];
+	static GLenum GLFORMAT[5];
 	LJVector3 m_CamPos;
 private:
 	HWND m_hWndMain;		// Main window
 	HWND m_hWnd[MAX_3DHWND];// render windows
 	UINT m_nNumhWnd;		// number of render-windows
 	UINT m_nActivehWnd;		// active window
-	DWORD m_dwWidth; 		// screen width
-	DWORD m_dwHeight;		// screen height
 	bool m_bWindowed; 		// windowed mode
 	char m_chAdapter[256]; 	// graphics adapter name
 	FILE *m_pLog;  			// log-file
@@ -117,6 +119,8 @@ private:
 	bool m_bViewUpdate;
 	bool m_bWorldUpdate;
 
+	// LJTexture Manager
+	LJOGLTextureManager *m_pTexManager;
 	// Internal texture manager manages OpenGL texture objects
 	LJInterTextureManager *m_pInterTexManager;
 	// Internal Gpu Program manager manages GLSL program objects
@@ -128,18 +132,22 @@ private:
 	// image manager, load and manage images
 	LJImageManager *m_pImgManager;
 
+	DWORD m_dwWidth; 		// screen width
+	DWORD m_dwHeight;		// screen height
 	// NEAR and FAR Clip Planes
 	float m_fNear;
 	float m_fFar;
+
+	LJOGLFramebuffer *m_pOGLFB;		// current pass framebuffer
+	LJOGLFramebuffer m_OGLFBs[LJ_MAX_RENDER_PASSES];
 
 	LJDIMENSIONMODE m_Mode; 					// the current mode
 	LJSTAGE m_nStage;							// the current stage
 	LJVIEWPORT m_Vp;							// the current view-port
 
-	LJVIEWPORT m_Vps[MAX_VIEWPORTS];			// view-ports for 3D
 	LJMatrix4 m_MatView3D;						// view-matrix for 3D
-	LJMatrix4 m_MatPers3D[MAX_VIEWPORTS];		// perspective-matrixes for 3D
-	LJMatrix4 m_MatOrth3D[MAX_VIEWPORTS];		// orthogonal-matrixes for 3D
+	LJMatrix4 m_MatPers3D;		// perspective-matrixes for 3D
+	LJMatrix4 m_MatOrth3D;		// orthogonal-matrixes for 3D
 
 	// world equals to screen setting
 	LJVIEWPORT m_Vp2D;							// the screen ViewPort
@@ -171,21 +179,13 @@ private:
 	void updateNormalMatrix();
 	// error checker
 	HRESULT getError(FILE *pLog);
+	// generate a OpenGL texture object for a LJTexture
+	UINT GenOGLTexture(LJTexture& tex);
 };
 
-
-#ifdef _LJ_WIN32
 extern "C" {
-	__declspec(dllexport) HRESULT CreateRenderDevice(LJRenderDevice **pInterface);
-	__declspec(dllexport) HRESULT ReleaseRenderDevice(LJRenderDevice **pInterface);
+	_LJExport HRESULT CreateRenderDevice(LJRenderDevice **pInterface);
+	_LJExport HRESULT ReleaseRenderDevice(LJRenderDevice **pInterface);
 }
-#endif
-
-#ifdef _LJ_LINUX
-extern "C" {
-	HRESULT CreateRenderDevice(LJRenderDevice **pInterface);
-	HRESULT ReleaseRenderDevice(LJRenderDevice **pInterface);
-}
-#endif
 
 #endif /* LJOPENGL_H_ */

@@ -1,4 +1,3 @@
-#include "LJRendererHeaders.h"
 #include "LJApplication.h"
 #include "LJFrameListener.h"
 #include "LJ1stPerCtrller.h"
@@ -11,6 +10,7 @@ float LJApplication::targetTpf = 16.6666f;
 LJApplication::LJApplication(const char* chAPI = "OpenGL")
 	:RenderManager(NULL),
 	MaterialManager(NULL),
+	TextureManager(NULL),
 	m_pDevice(NULL),
 	WindowWidth(800),
 	WindowHeight(600),
@@ -81,13 +81,13 @@ void LJApplication::Initialize()
 	{
 		throw "Retrieve device failed";
 	}
-	if(LJFailed(m_pDevice->Init(NULL, NULL, 0, 32, 24, true)))
+	if(LJFailed(m_pDevice->Init(NULL, NULL, 0, 32, 24, true, WindowWidth, WindowHeight)))
 	{
 		throw "Device initialization failed";
 	}
-	m_pDevice->SetWindowSize(WindowWidth, WindowHeight);
 	MaterialManager = m_pDevice->GetMaterialManager();
 	RenderManager = m_pDevice->GetRenderManager();
+	TextureManager = m_pDevice->GetTextureManager();
 
 	if(m_OnStartFunc)
 		m_OnStartFunc(*this);

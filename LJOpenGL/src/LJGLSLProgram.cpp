@@ -164,44 +164,58 @@ void LJGLSLProgram::DeleteAllShaders()
 	m_ShaderMap.clear();
 }
 
+void LJGLSLProgram::SetUniform(const char* name, UINT uVal)
+{
+	int location = getUniformLocation(name);
+	if(location != -1)
+		glUniform1ui(location, uVal);
+}
 void LJGLSLProgram::SetUniform(const char* name, float fVal)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform1f(location, fVal);
 }
 void LJGLSLProgram::SetUniform(const char* name, float fVal0, float fVal1, float fVal2)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform3f(location, fVal0, fVal1, fVal2);
 }
 void LJGLSLProgram::SetUniform(const char* name, int iVal)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform1i(location, iVal);
 }
 void LJGLSLProgram::SetUniform(const char* name, bool bVal)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform1i(location, bVal);
 }
 void LJGLSLProgram::SetUniform(const char* name, LJVector3& v3Val)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform3fv(location, 1, &v3Val[0]);
 }
 void LJGLSLProgram::SetUniform(const char* name, LJVector4& v4Val)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniform4fv(location, 1, &v4Val[0]);
 }
 void LJGLSLProgram::SetUniform(const char* name, LJMatrix3& m3Val)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniformMatrix3fv(location, 1, GL_FALSE, &m3Val[0][0]);
 }
 void LJGLSLProgram::SetUniform(const char* name, LJMatrix4& m4Val)
 {
-	UINT location = getUniformLocation(name);
+	int location = getUniformLocation(name);
+	if(location != -1)
 	glUniformMatrix4fv(location, 1, GL_FALSE, &m4Val[0][0]);
 }
 
@@ -215,11 +229,9 @@ void LJGLSLProgram::SetSubroutine(const char* name, LJGLSLShader::LJSHADERTYPE t
 	}
 }
 
-void LJGLSLProgram::getAttribLocation(const char* chName, UINT* uLocation)
+int LJGLSLProgram::getAttribLocation(const char* chName)
 {
-	if(uLocation != NULL){
-		*uLocation = glGetAttribLocation(m_uHandle, chName);
-	}
+	return glGetAttribLocation(m_uHandle, chName);
 }
 
 
@@ -240,7 +252,7 @@ void LJGLSLProgram::checkError()
 	}
 }
 
-UINT LJGLSLProgram::getUniformLocation(const char* name)
+int LJGLSLProgram::getUniformLocation(const char* name)
 {
 	return glGetUniformLocation(m_uHandle, name);
 }

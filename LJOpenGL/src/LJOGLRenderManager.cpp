@@ -17,7 +17,7 @@ LJOGLRenderManager::LJOGLRenderManager(LJOpenGL *pLJOGL,
 	m_pLog = pLog;
 	m_pLJOGL = pLJOGL;
 	m_pVCaches = new VCACHES();
-	m_pViewPorts = new VIEWPORTS();
+	m_pViewPorts = new RenderPasses();
 }
 
 LJOGLRenderManager::~LJOGLRenderManager(void)
@@ -35,7 +35,7 @@ LJOGLRenderManager::~LJOGLRenderManager(void)
 	}
 	if(m_pViewPorts)
 	{
-		VIEWPORTS::iterator it = m_pViewPorts->begin();
+		RenderPasses::iterator it = m_pViewPorts->begin();
 		while(it != m_pViewPorts->end())
 		{
 			delete *it;
@@ -55,6 +55,8 @@ HRESULT LJOGLRenderManager::_Render(LJSpatial& scene)
 	LJGeometry *g = dynamic_cast<LJGeometry*>(&scene);
 	if(g)
 	{
+		// empth cache
+		LJOGLVCache *emptyCache = NULL;
 		// find a proper cache
 		VCACHES::iterator it = m_pVCaches->begin();
 		while(it != m_pVCaches->end())
@@ -68,9 +70,19 @@ HRESULT LJOGLRenderManager::_Render(LJSpatial& scene)
 				 }
 				 return LJ_OK;
 			}
+			if((*it)->IsEmpty())
+			{
+				emptyCache = *it;
+			}
 			++it;
 		}
-		// not found, create new cache to store the geometry
+		if(emptyCache)
+		{
+			emptyCache->SetMaterial(g->GetMaterial());
+			emptyCache->Add(g);
+			return LJ_OK;
+		}
+		//create new cache to store the geometry
 		LJOGLVCache *newCache = new LJOGLVCache(m_pLJOGL, m_pLog);
 		newCache->Add(g);
 		newCache->SetMaterial(g->GetMaterial());
@@ -108,14 +120,11 @@ HRESULT LJOGLRenderManager::Render(LJSpatial& scene)
 
 HRESULT LJOGLRenderManager::ForcedFlushAll(void)
 {
-	m_pLJOGL->BeginRendering(true, true, true);
-	VIEWPORTS::iterator it = m_pViewPorts->begin();
-	
+	RenderPasses::iterator it = m_pViewPorts->begin();
 	while(it != m_pViewPorts->end())
 	{
-
-		// render view port scene
-		m_pLJOGL->UseStage((*it)->mode, (*it)->stage);
+		LJRenderPass *renderPass = *it;
+		m_pLJOGL->SetPerspective(renderPass->fFov, renderPass->fAspectRatio, renderPass->fNear, renderPass->fFar);
 		LJMoveController *camera = (*it)->Camera;
 		if(camera)
 		{
@@ -125,12 +134,20 @@ HRESULT LJOGLRenderManager::ForcedFlushAll(void)
 							camera->GetPos());
 			m_pLJOGL->m_CamPos = camera->GetPos();
 		}
+		else
+		{
+			m_pLJOGL->SetCamera(LJMatrix4());
+			m_pLJOGL->m_CamPos = LJVector3();
+		}
+		m_pLJOGL->SetViewport(renderPass->viewPort);
+		m_pLJOGL->SetMode(renderPass->mode);
+		m_pLJOGL->SetFramebuffer(renderPass->fb, renderPass->GetIndex());
 		if( LJFailed( Render( *(*it)->GetScene() ) ) )
 		{
 			LJLog("LJOGLRenderManager", "Render failed");
 			return LJ_FAIL;
 		}
-
+		m_pLJOGL->BeginRendering(true, true, true);
 		// flush all caches
 		VCACHES::iterator cache_it = m_pVCaches->begin();
 		while(cache_it != m_pVCaches->end())
@@ -142,26 +159,24 @@ HRESULT LJOGLRenderManager::ForcedFlushAll(void)
 			}
 			++cache_it;
 		}
-
+		m_pLJOGL->EndRendering();
 		// move to next view-port
 		++it;
 	}
-
-	m_pLJOGL->EndRendering();
 	return LJ_OK;
 }
 
 /*
- * Create a view-port
+ * Create a render pass
  */
-LJViewPort* LJOGLRenderManager::CreateViewPort()
+LJRenderPass* LJOGLRenderManager::CreateRenderPass()
 {
-	if(m_nNumViewPorts < MAX_VIEWPORTS)
+	if(m_nNumViewPorts < LJ_MAX_RENDER_PASSES)
 	{
-		LJViewPort *vp = new LJViewPort();
-		m_pViewPorts->push_back(vp);
+		LJRenderPass *renderPass = new LJRenderPass(m_nNumViewPorts);
+		m_pViewPorts->push_back(renderPass);
 		++m_nNumViewPorts;
-		return vp;
+		return renderPass;
 	}
 	LJLog("LJOGLRenderManager", "MAX NUMBER OF VIEWPORTS");
 	return NULL;

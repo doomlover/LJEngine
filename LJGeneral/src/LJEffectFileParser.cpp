@@ -73,31 +73,27 @@ LJEffectFileParser::BLENDFUNCMAP LJEffectFileParser::InitBlendFunc()
 
 LJEffectFileParser::BLENDFUNCMAP LJEffectFileParser::m_BlendFuncMap(LJEffectFileParser::InitBlendFunc());
 
-void LJEffectFileParser::init(const string& str)
+void LJEffectFileParser::init()
 {
-	m_pFileName = new string(str);
 	m_pWords = new WORDS();
 }
 
 void LJEffectFileParser::release()
 {
-	if(m_pFileName)
-	{
-		delete m_pFileName;
-	}
 	if(m_pWords)
 	{
 		delete m_pWords;
 	}
 }
 
-LJEffectFileParser::LJEffectFileParser(const string& str)
-:m_pFileName(NULL),
- m_nWord(-1),
+LJEffectFileParser::LJEffectFileParser(LJMaterialManager *MatMgr, LJTextureManager *TexMgr)
+:m_nWord(-1),
  m_nWords(0),
- m_pWords(NULL)
+ m_pWords(NULL),
+ m_pMatMgr(MatMgr),
+ m_pTexMgr(TexMgr)
 {
-	init(str);
+	init();
 }
 
 LJEffectFileParser::~LJEffectFileParser(void)
@@ -105,10 +101,10 @@ LJEffectFileParser::~LJEffectFileParser(void)
 	release();
 }
 
-void LJEffectFileParser::Read()
+void LJEffectFileParser::Read(const string& effectFile)
 {
 	using std::ifstream;
-	ifstream file(m_pFileName->c_str(), std::ios::in);
+	ifstream file(effectFile.c_str(), std::ios::in);
 	if(!file.is_open())
 	{
 		throw "Can not open effect file";
@@ -139,21 +135,24 @@ string LJEffectFileParser::GetWord()
 		throw "No more words";
 }
 
-void LJEffectFileParser::Parse(LJMaterial& mat)
+UINT LJEffectFileParser::Parse(const string& effectFile)
 {
-	Read();
+	Read(effectFile);
+	UINT id;
+	LJMaterial *newMat = m_pMatMgr->CreateMaterial(&id);
 	for(; m_nWord < m_nWords;)
 	{
 		string word = GetWord();
 		if(word == "Technique")
 		{
-			ParseTechnique(mat);
+			ParseTechnique(*newMat);
 		}
 		else if(word == "Parameters")
 		{
-			ParseParameters(mat);
+			ParseParameters(*newMat);
 		}
 	}
+	return id;
 }
 
 void LJEffectFileParser::ParseParameter(LJMaterial& mat, LJMatParamType type)
@@ -244,7 +243,13 @@ void LJEffectFileParser::ParseParameter(LJMaterial& mat, LJMatParamType type)
 		tex2d.SetName(name.c_str());
 		tex2d.SetTarget(LJ_TEXTURE_2D);
 		tex2d.AddImage(val.c_str());
-		mat.SetParam(name.c_str(), tex2d);
+
+		UINT texID;
+		LJTexture *tex = m_pTexMgr->CreateTexture(&texID);
+		tex->SetName(name.c_str());
+		tex->SetTarget(LJ_TEXTURE_2D);
+		tex->AddImage(val.c_str());
+		mat.SetParam(name.c_str(), texID);
 		}
 		break;
 	//case LJTEXTURE3D:
@@ -257,21 +262,22 @@ void LJEffectFileParser::ParseParameter(LJMaterial& mat, LJMatParamType type)
 		string negy = GetWord();
 		string posz = GetWord();
 		string negz = GetWord();
-		LJTexture texCube;
-		texCube.SetName(name.c_str());
-		texCube.SetTarget(LJ_TEXTURE_CUBE_MAP);
-		texCube.AddImage(posx.c_str());
-		texCube.AddImage(negx.c_str());
-		texCube.AddImage(posy.c_str());
-		texCube.AddImage(negy.c_str());
-		texCube.AddImage(posz.c_str());
-		texCube.AddImage(negz.c_str());
-		texCube.SetParameter(LJ_TEXTURE_MAG_FILTER, LJ_LINEAR);
-		texCube.SetParameter(LJ_TEXTURE_MIN_FILTER, LJ_LINEAR);
-		texCube.SetParameter(LJ_TEXTURE_WRAP_S, LJ_CLAMP_TO_EDGE);
-		texCube.SetParameter(LJ_TEXTURE_WRAP_T, LJ_CLAMP_TO_EDGE);
-		texCube.SetParameter(LJ_TEXTURE_WRAP_R, LJ_CLAMP_TO_EDGE);
-		mat.SetParam(name.c_str(), texCube);
+		UINT texID;
+		LJTexture *texCube = m_pTexMgr->CreateTexture(&texID);
+		texCube->SetName(name.c_str());
+		texCube->SetTarget(LJ_TEXTURE_CUBE_MAP);
+		texCube->AddImage(posx.c_str());
+		texCube->AddImage(negx.c_str());
+		texCube->AddImage(posy.c_str());
+		texCube->AddImage(negy.c_str());
+		texCube->AddImage(posz.c_str());
+		texCube->AddImage(negz.c_str());
+		texCube->SetParameter(LJ_TEXTURE_MAG_FILTER, LJ_LINEAR);
+		texCube->SetParameter(LJ_TEXTURE_MIN_FILTER, LJ_LINEAR);
+		texCube->SetParameter(LJ_TEXTURE_WRAP_S, LJ_CLAMP_TO_EDGE);
+		texCube->SetParameter(LJ_TEXTURE_WRAP_T, LJ_CLAMP_TO_EDGE);
+		texCube->SetParameter(LJ_TEXTURE_WRAP_R, LJ_CLAMP_TO_EDGE);
+		mat.SetParam(name.c_str(), texID);
 	}
 		break;
 	default:

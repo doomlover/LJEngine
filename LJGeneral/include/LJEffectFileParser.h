@@ -5,6 +5,7 @@
 #include "LJStringUtil.h"
 #include "LJTechnique.h"
 #include "LJRenderState.h"
+#include "LJMaterialManager.h"
 #include "LJMaterial.h"
 #include <map>
 using std::map;
@@ -24,14 +25,15 @@ class _LJExport LJEffectFileParser
 	static TYPEMAP InitTypeMap();
 	static BLENDEQMAP InitBlendEq();
 
-	string *m_pFileName;
 	int m_nWord;
 	int m_nWords;
 	WORDS *m_pWords;
+	LJMaterialManager *m_pMatMgr;
+	LJTextureManager *m_pTexMgr;
 
-	void init(const string& str);
+	void init();
 	void release();
-	void Read();
+	void Read(const string& effectFile);
 	void ParseParameters(LJMaterial& mat);
 	void ParseParameter(LJMaterial& mat, LJMatParamType type);
 	void ParseTechnique(LJMaterial& mat);
@@ -41,9 +43,9 @@ class _LJExport LJEffectFileParser
 	void ParseRenderState(LJPass& pass);
 	string GetWord();
 public:
-	LJEffectFileParser(const string& str);
+	LJEffectFileParser(LJMaterialManager *MatMgr, LJTextureManager *TexMgr);
 	~LJEffectFileParser(void);
-	void Parse(LJMaterial& mat);
+	UINT Parse(const string& effectFile);
 };//~LJEffectFileParser
 
 

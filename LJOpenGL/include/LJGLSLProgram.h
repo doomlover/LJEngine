@@ -28,7 +28,7 @@ public:
 	void DetachFShader();
 	void DetachVShader();
 	void DetachAll();
-
+	void SetUniform(const char* name, UINT uVal);
 	void SetUniform(const char* name, float fVal);
 	void SetUniform(const char* name, float fVal0, float fVal1, float fVal2);
 	void SetUniform(const char* name, int iVal);
@@ -38,7 +38,7 @@ public:
 	void SetUniform(const char* name, LJMatrix3& m3Val);
 	void SetUniform(const char* name, LJMatrix4& m4Val);
 	void SetSubroutine(const char* name, LJGLSLShader::LJSHADERTYPE type);
-	void getAttribLocation(const char* chName, UINT* uLocation);
+	int getAttribLocation(const char* chName);
 	// Whether already has the shader of the pass
 	bool HasShader(const char* chPassName)const;
 	// add shader
@@ -75,7 +75,7 @@ private:
 	int m_nNumPasses;
 
 	void checkError();
-	UINT getUniformLocation(const char* name);
+	int getUniformLocation(const char* name);
 };
 
 #endif

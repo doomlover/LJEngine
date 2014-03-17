@@ -6,7 +6,11 @@ void LJMaterial::init()
 	m_strSelectedTech = new string("");
 	m_Techniques = new LJTechniques();
 	m_pParams = new LJMatParams();
-	m_pTextures = new Textures();
+	m_pTexIdMap = new TexIdMap();
+	for(UINT i = 0; i < LJ_MAX_MATERIAL_TEXTURES; ++i)
+	{
+		m_nTextures[i] = LJ_MAX_ID;
+	}
 }
 /*
  * Constructor
@@ -43,6 +47,10 @@ LJMaterial::~LJMaterial(void)
 	if(m_strSelectedTech)
 	{
 		delete m_strSelectedTech;
+	}
+	if(m_pTexIdMap)
+	{
+		delete m_pTexIdMap;
 	}
 }
 /*
@@ -150,14 +158,16 @@ const char* LJMaterial::GetTechName() const
 /*
  * Set texture parameter
  */
-void LJMaterial::SetParam(const char* name, const LJTexture& Tex)
+void LJMaterial::SetParam(const char* name, UINT texID)
 {
-		if(!name) throw "INVALID PARAMETER NAME";
+		if(!name || texID == LJ_MAX_ID) throw "INVALID PARAMETER";
 		// can add a texture
 		if (m_nNumTextures < LJ_MAX_MATERIAL_TEXTURES)
 		{
-			// copy texture to material
-			m_pTextures->push_back(Tex);
+			// set id map
+			(*m_pTexIdMap)[string(name)] = texID;
+			// set texture unit indexed id
+			m_nTextures[m_nNumTextures] = texID;
 			// increase the number of textures
 			m_nNumTextures++;
 			// create new parameter
@@ -184,39 +194,38 @@ void LJMaterial::SetParam(const char* name, const LJTexture& Tex)
 /*
  * Get the id of texture at index
  */
-LJTexture& LJMaterial::GetTexture(UINT index)
+UINT LJMaterial::GetTexture(UINT index)
 {
 	if(index < LJ_MAX_MATERIAL_TEXTURES)
 	{
-		return m_pTextures->at(index);
+		return m_nTextures[index];
 	}
-	throw "LJMaterial : GetTexture, Invalid index";
+	return LJ_MAX_ID;
 }
 /*
  * Get the texture with the specified name
  */
-const LJTexture* LJMaterial::GetTexture(const char* name) const
+UINT LJMaterial::GetTexture(const char* name) const
+{
+
+	return InterGetTexture(name);
+}
+UINT LJMaterial::GetTexture(const char* name)
 {
 	return InterGetTexture(name);
 }
-LJTexture* LJMaterial::GetTexture(const char* name)
+UINT LJMaterial::InterGetTexture(const char* name) const
 {
-	return InterGetTexture(name);
-}
-LJTexture* LJMaterial::InterGetTexture(const char* name) const
-{
-	if(!name)
-		return NULL;
-	Textures::iterator it = m_pTextures->begin();
-	while(it != m_pTextures->end())
+	if(name)
 	{
-		if(strcmp((*it).GetName(), name) == 0)
+		TexIdMap::const_iterator it = m_pTexIdMap->find(string(name));
+		if(it != m_pTexIdMap->end())
 		{
-			return &(*it);
+			return it->second;
 		}
-		++it;
+		return LJ_MAX_ID;
 	}
-	return NULL;
+	return LJ_MAX_ID;
 }
 /*
  * PRIVATE FUNCTION
@@ -233,12 +242,9 @@ void LJMaterial::copy(const LJMaterial& mat)
 	// copy selected technique
 	m_strSelectedTech->assign(mat.GetTechName());
 	// copy texture ids
-//	const LJTexture *texs = mat.GetTextureIdArray();
-//	for(UINT i = 0; i < m_nNumTextures; ++i)
-//	{
-//		m_Textures[i] = texs[i];
-//	}
-	*m_pTextures = *(mat.m_pTextures);
+	memcpy(m_nTextures, mat.m_nTextures, LJ_MAX_MATERIAL_TEXTURES*sizeof(UINT));
+	// copy id map
+	*m_pTexIdMap = *mat.m_pTexIdMap;
 }
 
 /*******************************************************

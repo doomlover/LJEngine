@@ -13,7 +13,7 @@ public:
 	/* Return a newly created material and its id */
 	LJMaterial* CreateMaterial(UINT *id);
 	/* Create a new material from a effect file and return its id */
-	UINT CreateMaterial(const char* effectFile);
+	UINT CreateMaterial(const char* effectFile, LJTextureManager *texMgr);
 	/* Retrieve the material which has the specified id */
 	LJMaterial* GetMaterial(UINT id);
 	/* Material container type */

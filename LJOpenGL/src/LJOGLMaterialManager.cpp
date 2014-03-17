@@ -26,21 +26,18 @@ LJMaterial* LJOGLMaterialManager::CreateMaterial(UINT *id)
 	return newMat;
 }
 
-UINT LJOGLMaterialManager::CreateMaterial(const char* effectFile)
+UINT LJOGLMaterialManager::CreateMaterial(const char* effectFile, LJTextureManager *texMgr)
 {
 	if(!effectFile)
 		throw "Invalid effect file path";
-	LJMaterial *newMat;
-	UINT id;
-	newMat = CreateMaterial(&id);
-	LJEffectFileParser parser(effectFile);
+	LJEffectFileParser parser(this, texMgr);
 	try{
-		parser.Parse(*newMat);
+		return parser.Parse(effectFile);
 	}catch(const char* error)
 	{
 		LJLog("LJOGLMaterialManager", error);
 	}
-	return id;
+	return LJ_MAX_ID;
 }
 
 LJMaterial* LJOGLMaterialManager::GetMaterial(UINT id)

@@ -5,6 +5,7 @@
 
 #ifdef _LJ_WIN32
 #include <Windows.h>
+#pragma warning( disable: 4251 )
 #else
 #ifdef _LJ_LINUX
 namespace ljrenderer
@@ -12,7 +13,7 @@ namespace ljrenderer
 typedef unsigned char UCHAR;
 typedef UCHAR BYTE;
 typedef unsigned short WORD;
-typedef unsigned int DWORD;
+typedef unsigned long DWORD;
 typedef unsigned int UINT;
 typedef DWORD ULONG;
 typedef ULONG HRESULT;
@@ -74,6 +75,8 @@ typedef struct LJVIEWPORT_TYPE
 	DWORD y; // upper top
 	DWORD width;
 	DWORD height;
+	LJVIEWPORT_TYPE():x(0), y(0), width(640), height(480){}
+	LJVIEWPORT_TYPE(DWORD x_, DWORD y_, DWORD w_, DWORD h_):x(x_), y(y_), width(w_), height(h_){}
 } LJVIEWPORT;
 
 const HRESULT LJ_OK = 0x0;
@@ -84,10 +87,11 @@ const HRESULT LJ_INVALIDID = 0x4;
 const HRESULT LJ_INVALID_TEXTURE_FORMAT = 0x5;
 const HRESULT LJ_INVALID_PARAM = 0x6;
 
+const UINT LJ_MAX_RENDER_BUFFERS = 8;
 const UINT LJ_MAX_MATERIAL_TEXTURES = 16;
 const int LJ_MAX_TEXTURE_ID = 65536;
-const UINT MAX_VIEWPORTS = 4;
+const UINT LJ_MAX_RENDER_PASSES = 4;
 const int LJ_MAX_TEXTURES = 16;
-const int LJ_MAX_ID = 65536;
+const UINT LJ_MAX_ID = 65536;
 
 #endif /* LJGENERALTYPE_H_ */

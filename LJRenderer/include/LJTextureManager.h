@@ -11,15 +11,11 @@ class LJTextureManager
 {
 public:
 	virtual ~LJTextureManager(void){}
-	/*
-	 * Return a newly created texture and the
-	 * id to caller. Users should never delete
-	 * the returned texture by themselves.
-	 */
-	virtual LJTexture* CreateTexture(const char* imageFile, UINT *id) = 0;
-	/*
-	 * Retrieve the texture which has the specific id
-	 */
+	/* Add a user created texture. A copy is generated */
+	virtual UINT AddTexture(const LJTexture& tex) = 0;
+	/* return a newly created texture which is owned by manager */
+	virtual LJTexture* CreateTexture(UINT *id) = 0;
+	/* Retrieve the texture by the specified id */
 	virtual LJTexture* GetTexture(UINT id) = 0;
 };//~LJTextureManager;
 #endif

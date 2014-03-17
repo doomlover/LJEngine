@@ -35,6 +35,8 @@ public:
 	HRESULT Flush(bool bUseShaders);
 	/* Cache a new geometry */
 	HRESULT Add(LJGeometry* pGeometry);
+	/* Is empth ? */
+	bool IsEmpty() const{ return m_pGeometrys->size() == 0; }
 	/* geometry container type */
 	typedef vector<LJGeometry*> GEOMETRYS;
 private:

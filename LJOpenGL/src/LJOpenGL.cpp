@@ -18,6 +18,7 @@
 #include "LJImageManager.h"
 #include "LJGeometry.h"
 #include "LJOGLTexture.h"
+#include "LJOGLTextureManager.h"
 #include <iostream>
 #include <cstring>
 #include <string>
@@ -84,6 +85,17 @@ GLenum LJOpenGL::GLTYPE[7] =
 	GL_FLOAT,
 };
 /*
+ * OpenGL Format Token
+ */
+GLenum LJOpenGL::GLFORMAT[5] =
+{
+	GL_RGB,
+	GL_BGR,
+	GL_RGBA,
+	GL_BGRA,
+	GL_DEPTH_COMPONENT
+};
+/*
  * OpenGL Render State Token (FUNC, MODE)
  */
 GLenum LJOpenGL::DEVICE_RENDER_STATE_VALUE[35] =
@@ -146,7 +158,7 @@ LJOpenGL::LJOpenGL(void)
 	m_pMatManager = NULL;
 	m_pVCManager = NULL;
 	m_pImgManager = NULL;
-	m_nStage = LJ_STAGE_MAX;
+	m_pTexManager = NULL;
 	m_Mode = LJ_DM_ORTHOGONAL;
 
 	m_dwWidth = 0;
@@ -158,6 +170,8 @@ LJOpenGL::LJOpenGL(void)
 
 	m_fNear = 0.01f;
 	m_fFar = 1000.f;
+
+	m_pOGLFB = NULL;
 
 	m_pBoundGpuProgram = NULL;
 }
@@ -172,7 +186,10 @@ void LJOpenGL::Release() {
 	if (m_pLog) {
 		fclose(m_pLog);
 	}
-
+	if(m_pTexManager)
+	{
+		delete m_pTexManager;
+	}
 	if(m_pVCManager) {
 		delete m_pVCManager;
 		m_pVCManager = NULL;
@@ -197,10 +214,24 @@ void LJOpenGL::Release() {
 		delete m_pMatManager;
 		m_pMatManager = NULL;
 	}
+	// delete openGL framebuffer and renderbuffer
+	for(UINT i = 0; i < LJ_MAX_RENDER_PASSES; ++i)
+	{
+		UINT id = m_OGLFBs[i].m_OGLFBHandle;
+		if(id != LJ_MAX_ID)
+		{
+			glDeleteFramebuffers(1, &id);
+		}
+		id = m_OGLFBs[i].m_OGLRBHandle;
+		if(id != LJ_MAX_ID)
+		{
+			glDeleteRenderbuffers(1, &id);
+		}
+	}
 }
 
 HRESULT LJOpenGL::Init(HWND hWnd, const HWND* hWnd3D, int nNumhWnd,
-		int nMinDepth, int nMinStencil, bool bSaveLog) {
+		int nMinDepth, int nMinStencil, bool bSaveLog, int winWidth, int winHeight) {
 	LJLog("LJOpenGL", "Init");
 #ifdef _LJ_WIN32
 	fopen_s(&m_pLog, "log_renderdevice.txt", "w");
@@ -235,7 +266,8 @@ HRESULT LJOpenGL::Init(HWND hWnd, const HWND* hWnd3D, int nNumhWnd,
 	} else {
 		LJLog("LJOpenGL", "GLEW INIT");
 	}
-
+	m_dwWidth = winWidth;
+	m_dwHeight = winHeight;
 	return Go();
 }
 
@@ -259,9 +291,59 @@ HRESULT LJOpenGL::Go(void) {
 	return ret;
 }
 
-HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil) {
-
+HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil)
+{
 	HRESULT ret = LJ_FAIL;
+	// Use default OpenGL framebuffer
+	if(m_pOGLFB->m_Fb != NULL)
+	{
+		LJFramebuffer *fb = m_pOGLFB->m_Fb;
+		LJRenderTexture *depthBuffer = fb->GetDepthTexture();
+		// off screen rendering must specify depth buffer
+		if(depthBuffer == NULL) {
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
+		else {
+			LJTexture *depthTex = depthBuffer->GetTexture(NULL);
+			UINT nRenderTexes = fb->GetNumberRenderTextures();
+			// If there is no render texture or depth texture
+			if(nRenderTexes == 0 && depthTex == NULL)
+			{
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+			else { // do rendering to texture
+				// Generate OpenGL framebuffer object
+				if(m_pOGLFB->m_OGLFBHandle == LJ_MAX_ID)
+				{
+					glGenFramebuffers(1, &m_pOGLFB->m_OGLFBHandle);
+				}
+				glBindFramebuffer(GL_FRAMEBUFFER, m_pOGLFB->m_OGLFBHandle);
+				if(m_pOGLFB->m_Fb->IsUpdated())
+				{
+					//printf("Framebuffer update\n");
+					vector<GLenum> drawBuffers;
+					for(UINT i = 0; i < nRenderTexes; ++i)
+					{
+						ApplyRenderTexture(*fb->GetRenderTexture(i), i);
+						ret = glGetError();
+						drawBuffers.push_back(GL_COLOR_ATTACHMENT0 + i);
+					}
+					if(ApplyDepthTexture(*depthBuffer, nRenderTexes))
+					{
+						drawBuffers.push_back(GL_DEPTH_ATTACHMENT);
+					}
+					glDrawBuffers(drawBuffers.size(), drawBuffers.data());
+					if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+						return LJ_FAIL;
+					m_pOGLFB->m_Fb->SetUpdated(false);
+				}
+			}
+		}
+	}//~if(m_pOGLFB->m_Fb != NULL)
+	else {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+	glViewport(m_Vp.x, m_Vp.y, m_Vp.width, m_Vp.height);
 	DWORD dw = 0;
 	if (bColor || bDepth || bStencil) {
 		if (bColor)
@@ -285,6 +367,133 @@ HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil) {
 		fprintf(m_pLog, "glGetError : %u\n", (GLuint) ret);
 		return LJ_FAIL;
 	}
+}
+
+UINT LJOpenGL::GenOGLTexture(LJTexture& tex)
+{
+	int texID = tex.GetId();
+	if(texID == -1)
+	{
+		UINT newId;
+		glGenTextures(1, &newId);
+		texID = newId;
+		tex.SetId(texID);
+		m_pInterTexManager->SetTexObj(texID);
+	}
+	else
+	{
+		if(m_pInterTexManager->GetTexObj(texID) == -1)
+		{
+			UINT newId;
+			glGenTextures(1, &newId);
+			texID = newId;
+			tex.SetId(texID);
+			m_pInterTexManager->SetTexObj(texID);
+		}
+	}
+	return texID;
+}
+
+void LJOpenGL::ApplyRenderTexture(LJRenderTexture& renderTex, UINT attachPoint)
+{
+	// Get texture size
+	UINT w, h;
+	renderTex.GetSize(&w, &h);
+	// Get format
+	TextureFormat fmt = renderTex.GetFormat();
+	// Get texture
+	LJTexture *tex = renderTex.GetTexture(NULL);
+
+	if(!tex)
+		throw "Off screen rendering must has at least one texture";
+	// Generate OGL texture
+	UINT texID = GenOGLTexture(*tex);
+	glActiveTexture(GL_TEXTURE0+attachPoint);
+	GLenum target = GL_TEXTURE_2D;
+
+	switch(tex->GetTarget())
+	{
+	case LJ_TEXTURE_2D:
+	{
+		target = GL_TEXTURE_2D;
+		glBindTexture(GL_TEXTURE_2D, texID);
+		if(tex->IsNeedUpdate())
+		{
+			//printf("ApplyRenderTexture : glTexImage2D\n");
+			glTexImage2D(target, 0,
+					GLFORMAT[fmt],
+					w, h, 0,
+					GLFORMAT[fmt],
+					GL_UNSIGNED_BYTE,
+					0);
+			tex->SetNeedUpdate(false);
+		}
+	}
+		break;
+	case LJ_TEXTURE_3D:
+	{
+		target = GL_TEXTURE_3D;
+		throw "not support 3D texture";
+	}
+		break;
+	default:
+		// should not goes here
+		break;
+	}//~switch
+	// set texture parameters
+	if(tex->IsUpdateParam())
+	{
+		LJTexture::LJTEXPARAMCONFS::const_iterator it = tex->GetParams().begin();
+		LJTexture::LJTEXPARAMCONFS::const_iterator it_end = tex->GetParams().end();
+		while(it != it_end)
+		{
+			glTexParameteri(target, GLPNAME[it->first], GLPARAM[it->second]);
+			++it;
+		}
+		tex->SetUpdateParam(false);
+	}
+	glFramebufferTexture(GL_FRAMEBUFFER,
+			GL_COLOR_ATTACHMENT0+attachPoint,
+			texID, 0);
+}
+
+bool LJOpenGL::ApplyDepthTexture(LJRenderTexture& depth, UINT unit)
+{
+	if(m_pOGLFB->m_OGLRBHandle == LJ_MAX_ID)
+	{
+		glGenRenderbuffers(1, &m_pOGLFB->m_OGLRBHandle);
+	}
+	glBindRenderbuffer(GL_RENDERBUFFER, m_pOGLFB->m_OGLRBHandle);
+
+	UINT w, h;
+	depth.GetSize(&w, &h);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
+			w, h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+			GL_RENDERBUFFER, m_pOGLFB->m_OGLRBHandle);
+	// Optional. If there is a depth texture can be rendered
+	LJTexture *tex = depth.GetTexture(NULL);
+	if(tex)
+	{
+		// Generate OGL texture id
+		UINT texID = GenOGLTexture(*tex);
+		glActiveTexture(GL_TEXTURE0 + unit);
+		glBindTexture(GL_TEXTURE_2D, texID);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+				w, h, 0,
+				GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+				texID, 0);
+		return true;
+	}
+	return false;
+}
+
+/* Setup framebuffer */
+void LJOpenGL::SetFramebuffer(LJFramebuffer& fb, UINT renderPassIndex)
+{
+	m_OGLFBs[renderPassIndex].m_Fb = &fb;
+	m_pOGLFB = &m_OGLFBs[renderPassIndex];
 }
 
 HRESULT LJOpenGL::Clear(bool bColor, bool bDepth, bool bStencil) {
@@ -379,142 +588,48 @@ void LJOpenGL::SetCamera(LJMatrix4& viewMatrix)
 	m_bViewUpdate = true;
 }
 
-/*
- * All stage use same Near clip plane and Far clip plane
- * Create 2D View Matrix, 2D Projection Matrix and  2D View-Port
- */
-void LJOpenGL::SetNearFarClip(float fNear, float fFar)
-{
-	if( fNear > 0 && fFar > 0 && fNear < fFar) {
-		m_fNear = fNear;
-		m_fFar = fFar;
-
-		// Create 2D Matrixes and View-Port
-		m_Vp2D.x = m_Vp2D.y = 0;
-		m_Vp2D.width = m_dwWidth;
-		m_Vp2D.height = m_dwHeight;
-		// Just translate center from (w/2, h/2) to (0, 0) and flip Y
-		// No rotation , no zoom
-		m_MatView2D[0] = LJVector4(1.f, 0.f, 0.f, 0.f);
-		m_MatView2D[1] = LJVector4(0.f,-1.f, 0.f, 0.f);
-		m_MatView2D[2] = LJVector4(0.f, 0.f, 1.f, 0.f);
-		m_MatView2D[3] = LJVector4(m_dwWidth*(-0.5f), m_dwHeight*(-0.5f), -0.1f-m_fNear, 1.0f);
-		// 2D Projection (Orthogonal)
-		m_MatProj2D[0] = LJVector4(2.f/m_dwWidth, 0.f, 0.f, 0.f);
-		m_MatProj2D[1] = LJVector4(0.f, 2.f/m_dwHeight, 0.f, 0.f);
-		m_MatProj2D[2] = LJVector4(0.f, 0.f, -2.f/(m_fFar-m_fNear), 0.f);
-		m_MatProj2D[3] = LJVector4(0.f, 0.f, -(m_fFar+m_fNear)/(m_fFar-m_fNear), 1.f);
-	}
-	else {
-		LJLog("LJOpenGL::SetNearFarClip", "INVALID CLIP PLANE VALUES!");
-	}
-}
-/*
- * Set from field of view
- * Create 3D Perspective Matrix and 3D Orthogonal Matrix for @stage
- */
-void LJOpenGL::InitStage(float fFov, float fAspRatio, LJSTAGE stage)
+// set projection, both perspective matrix and orthogonal matrix are calculated. Use SetMode to choose mode
+void LJOpenGL::SetPerspective(float fFov, float fAspect, float fNear, float fFar)
 {
 	float r, l, t, b;
 	r = static_cast<float>(m_fNear*static_cast<float>(tan(DegreeToRadian(fFov/2.0))));
 	l = -r;
-	t = r/fAspRatio;
+	t = r/fAspect;
 	b = -t;
-	InitStage(l, r, t, b, stage);
-}
-// Set from Right, Left, Top, Bottom clip planes
-void LJOpenGL::InitStage(float fL, float fR, float fT, float fB, LJSTAGE stage)
-{
-	if(stage == LJ_STAGE_MAX) {
-		LJLog("LJOpenGL : InitStage", "INVALID STAGE");
-		return;
-	}
 	/*
 	 * Calculate Projection Matrix
 	 */
-	float raddl = fR+fL;
-	float rsubl = fR-fL;
-	float tsubb = fT - fB;
-	float taddb = fT + fB;
+	float raddl = r+l;
+	float rsubl = r-l;
+	float tsubb = t - b;
+	float taddb = t + b;
 	float faddn = m_fFar + m_fNear;
 	float fsubn = m_fFar - m_fNear;
-
 	/*
 	 * Perspective Matrix
 	 */
-	m_MatPers3D[stage][0] = LJVector4(2*m_fNear/rsubl, 0, 0, 0);
-	m_MatPers3D[stage][1] = LJVector4(0, 2*m_fNear/tsubb, 0, 0);
-	m_MatPers3D[stage][2] = LJVector4(raddl/rsubl, taddb/tsubb, -faddn/fsubn, -1.f);
-	m_MatPers3D[stage][3] = LJVector4(0, 0, -2*m_fNear*m_fFar/fsubn, 0);
+	m_MatPers3D[0] = LJVector4(2*m_fNear/rsubl, 0, 0, 0);
+	m_MatPers3D[1] = LJVector4(0, 2*m_fNear/tsubb, 0, 0);
+	m_MatPers3D[2] = LJVector4(raddl/rsubl, taddb/tsubb, -faddn/fsubn, -1.f);
+	m_MatPers3D[3] = LJVector4(0, 0, -2*m_fNear*m_fFar/fsubn, 0);
 
 	/*
 	 * Orthogonal Matrix
 	 */
-	m_MatOrth3D[stage][0] = LJVector4(2.0f/rsubl, 0, 0, 0);
-	m_MatOrth3D[stage][1] = LJVector4(0, 2.0f/tsubb, 0, 0);
-	m_MatOrth3D[stage][2] = LJVector4(0, 0, -2.0f/fsubn, 0);
-	m_MatOrth3D[stage][3] = LJVector4(-raddl/rsubl, -taddb/tsubb, -faddn/fsubn, 1.f);
-
-	updateViewProjMatrix();
-	updateWorldViewProjMatrix();
+	m_MatOrth3D[0] = LJVector4(2.0f/rsubl, 0, 0, 0);
+	m_MatOrth3D[1] = LJVector4(0, 2.0f/tsubb, 0, 0);
+	m_MatOrth3D[2] = LJVector4(0, 0, -2.0f/fsubn, 0);
+	m_MatOrth3D[3] = LJVector4(-raddl/rsubl, -taddb/tsubb, -faddn/fsubn, 1.f);
 }
-// Directly set
-void LJOpenGL::InitStage(LJMatrix4& persMatrix, LJMatrix4& orthMatrix, LJSTAGE stage)
+// Set mode and stage
+void LJOpenGL::SetMode(LJDIMENSIONMODE mode)
 {
-	if(stage == LJ_STAGE_MAX) {
-		LJLog("LJOpenGL : InitStage", "INVALID STAGE");
-		return;
-	}
-	m_MatPers3D[stage] = persMatrix;
-	m_MatOrth3D[stage] = orthMatrix;
+	m_Mode = mode;
 }
 // Set 3D View-port for @stage
-void LJOpenGL::SetViewport(LJSTAGE stage, LJVIEWPORT& viewport)
+void LJOpenGL::SetViewport(LJVIEWPORT& viewport)
 {
-	if(stage == LJ_STAGE_MAX) {
-		LJLog("LJOpenGL : InitStage", "INVALID STAGE");
-		return;
-	}
-	m_Vps[stage] = viewport;
-}
-// Choose which stage is about to be used and the projection mode which is perspective or orthogonal.
-// If the projection mode is "World equals to Screen", the Stage parameter is ignored
-HRESULT LJOpenGL::UseStage(LJDIMENSIONMODE mode, LJSTAGE nStage) 
-{
-	HRESULT hr = LJ_OK;
-	/* Invalid stage */
-	if((nStage == LJ_STAGE_MAX) && (mode != LJ_WEQS)){
-		LJLog("LJRenderDevice::UseStage", "BAD STAGE");
-		return LJ_FAIL;
-	}
-	/* update the current mode */
-	if (m_Mode != mode) {
-		m_Mode = mode;
-	}
-	/* Flush all drawing */
-	// m_pVertexMgr->ForcedFlushAll();
-
-	/* set current ViewPort and camera according to the stage */
-	switch (mode) {
-	case LJ_WEQS:
-		m_Vp = m_Vp2D;
-		// Active no stage
-		m_nStage = LJ_STAGE_MAX;
-		break;
-	case LJ_DM_PERSPECTIVE:
-	case LJ_DM_ORTHOGONAL:
-		m_Vp = m_Vps[nStage];
-		m_nStage = nStage;
-		break;
-	default:
-		return LJ_FAIL;
-	}
-	updateViewProjMatrix();
-	updateWorldViewProjMatrix();
-
-	/* Set GL View-port with current view-port setting */
-	glViewport(m_Vp.x, m_Vp.y, m_Vp.width, m_Vp.height);
-	return hr;
+	m_Vp = viewport;
 }
 /* Set Local-to-World Matrix */
 void LJOpenGL::SetWorldMatrix(LJMatrix4& matWorld)
@@ -533,48 +648,47 @@ HRESULT LJOpenGL::ExtractFrustumPlanes(LJPlane* pPlanes) {
 
 // not implemented
 void LJOpenGL::ScreenToWorld(const LJVector2& v2Screen, LJVector3& v3World) {
-	LJLog("LJOpenGL", "ScreenToWorld : not implemented");
-	DWORD w, h;
-	LJMatrix4 inverseViewMat;
-	// SCREEN TO NDC
-	switch(m_Mode)
-	{
-	case LJ_WEQS:
-		w = m_dwWidth;
-		h = m_dwHeight;
-		//inverseViewMat = ljm::inverse(m_MatView2D);
-		break;
-	default:
-		w = m_Vps[m_nStage].width;
-		h = m_Vps[m_nStage].height;
-		//inverseViewMat = ljm::inverse(m_MatView3D);
-	}
-	float NDCx = v2Screen.x/w*2.f-1.f;
-	float NDCy = v2Screen.y/h*2.f-1.f;
-	// Looking for the corresponding point on the Near plane, so Pz = m_fNear
-	// NDC TO CC (clip coordinate)
-	float CCx = NDCx*(-m_fNear);
-	float CCy = NDCy*(-m_fNear);
-	// CC TO EYE (view or camera space coordinate)
-	float ECx, ECy;
-	switch(m_Mode) {
-	case LJ_DM_PERSPECTIVE:
-		ECx = (CCx + m_MatPers3D[m_nStage][2][0]*(-m_fNear))/m_MatPers3D[m_nStage][0][0];
-		ECy = (CCy + m_MatPers3D[m_nStage][2][1]*(-m_fNear))/m_MatPers3D[m_nStage][1][1];
-		break;
-	case LJ_DM_ORTHOGONAL:
-		ECx = (CCx + m_MatOrth3D[m_nStage][2][0]*(-m_fNear))/m_MatPers3D[m_nStage][0][0];
-		ECy = (CCy + m_MatOrth3D[m_nStage][2][1]*(-m_fNear))/m_MatPers3D[m_nStage][1][1];
-		break;
-	case LJ_WEQS:
-		ECx = (CCx - m_MatProj2D[3][0])/m_MatProj2D[0][0];
-		ECy = (CCy - m_MatProj2D[3][1])/m_MatProj2D[1][1];
-		break;
-	default:
-		break;
-	}
+	//LJLog("LJOpenGL", "ScreenToWorld : not implemented");
+	//DWORD w, h;
+	//LJMatrix4 inverseViewMat;
+	//// SCREEN TO NDC
+	//switch(m_Mode)
+	//{
+	//case LJ_WEQS:
+	//	w = m_dwWidth;
+	//	h = m_dwHeight;
+	//	//inverseViewMat = ljm::inverse(m_MatView2D);
+	//	break;
+	//default:
+	//	w = m_Vps[m_nStage].width;
+	//	h = m_Vps[m_nStage].height;
+	//	//inverseViewMat = ljm::inverse(m_MatView3D);
+	//}
+	//float NDCx = v2Screen.x/w*2.f-1.f;
+	//float NDCy = v2Screen.y/h*2.f-1.f;
+	//// Looking for the corresponding point on the Near plane, so Pz = m_fNear
+	//// NDC TO CC (clip coordinate)
+	//float CCx = NDCx*(-m_fNear);
+	//float CCy = NDCy*(-m_fNear);
+	//// CC TO EYE (view or camera space coordinate)
+	//float ECx, ECy;
+	//switch(m_Mode) {
+	//case LJ_DM_PERSPECTIVE:
+	//	ECx = (CCx + m_MatPers3D[m_nStage][2][0]*(-m_fNear))/m_MatPers3D[m_nStage][0][0];
+	//	ECy = (CCy + m_MatPers3D[m_nStage][2][1]*(-m_fNear))/m_MatPers3D[m_nStage][1][1];
+	//	break;
+	//case LJ_DM_ORTHOGONAL:
+	//	ECx = (CCx + m_MatOrth3D[m_nStage][2][0]*(-m_fNear))/m_MatPers3D[m_nStage][0][0];
+	//	ECy = (CCy + m_MatOrth3D[m_nStage][2][1]*(-m_fNear))/m_MatPers3D[m_nStage][1][1];
+	//	break;
+	//case LJ_WEQS:
+	//	ECx = (CCx - m_MatProj2D[3][0])/m_MatProj2D[0][0];
+	//	ECy = (CCy - m_MatProj2D[3][1])/m_MatProj2D[1][1];
+	//	break;
+	//default:
+	//	break;
+	//}
 	// EC TO W
-
 }
 
 void LJOpenGL::WorldToScreen(const LJVector3& v3World, LJVector2& v2Screen) {
@@ -591,10 +705,9 @@ void LJOpenGL::WorldToScreen(const LJVector3& v3World, LJVector2& v2Screen) {
 	v2Screen.y = (v4Clip.y + 1.0f)/2.0f*height;
 }
 
-void LJOpenGL::SetWindowSize(int nWidth, int nHeight)
+LJTextureManager* LJOpenGL::GetTextureManager()
 {
-	m_dwWidth = nWidth;
-	m_dwHeight = nHeight;
+	return m_pTexManager;
 }
 
 LJMaterialManager* LJOpenGL::GetMaterialManager(void)
@@ -671,14 +784,16 @@ HRESULT LJOpenGL::RenderMesh(LJMesh& mesh)
 			glBufferData(target, (*it)->GetSize()*(*it)->GetTypeSize(),
 				(GLvoid*)(*it)->GetData(), get_buffer_usage((*it)->GetUsage()));
 		}
-		GLuint location;
 		// get attribute location
-		m_pBoundGpuProgram->getAttribLocation((*it)->GetAttribName().c_str(), &location);
+		int location = m_pBoundGpuProgram->getAttribLocation((*it)->GetAttribName().c_str());
 		// enable shader attribute
-		glEnableVertexAttribArray(location);
-		glVertexAttribPointer(location, (*it)->GetComponent(),
-			GLTYPE[(*it)->GetType()], (*it)->GetNormalized(),
-			(*it)->GetStride(), (GLvoid*)0);
+		if(location != -1)
+		{
+			glEnableVertexAttribArray(location);
+			glVertexAttribPointer(location, (*it)->GetComponent(),
+				GLTYPE[(*it)->GetType()], (*it)->GetNormalized(),
+				(*it)->GetStride(), (GLvoid*)0);
+		}
 		++it;
 	}
 	LJVertexBuffer *pIndexBuffer = mesh.GetIndexBuffer();
@@ -708,9 +823,9 @@ HRESULT LJOpenGL::RenderMesh(LJMesh& mesh)
 	}
 	else
 	{
-//		glDrawArrays();
+		int size = (*mesh.GetBuffers())[0]->GetSize();
+		glDrawArrays(get_mode(mesh.GetMode()), 0, size);
 	}
-
 	return hr;
 }
 
@@ -718,27 +833,7 @@ HRESULT LJOpenGL::ApplyTexture(LJTexture& tex, int texUnit)
 {
 	HRESULT hr = LJ_OK;
 
-	int id = tex.GetId();
-	if(id == -1)
-	{
-		UINT newId;
-		glGenTextures(1, &newId);
-		id = newId;
-		tex.SetId(id);
-		m_pInterTexManager->SetTexObj(id);
-	}
-	else
-	{
-		if(m_pInterTexManager->GetTexObj(id) == -1)
-		{
-			UINT newId;
-			glGenTextures(1, &newId);
-			id = newId;
-			tex.SetId(id);
-			m_pInterTexManager->SetTexObj(id);
-		}
-	}
-
+	UINT id = GenOGLTexture(tex);
 	// active opengl tex unit
 	glActiveTexture(GL_TEXTURE0+texUnit);
 
@@ -757,7 +852,7 @@ HRESULT LJOpenGL::ApplyTexture(LJTexture& tex, int texUnit)
 			LJImage& img = m_pImgManager->CreateImage(tex.GetImage(0));
 			LJOGLTexture OGLTex(&tex, &img);
 			OGLTex.Update();
-
+			//printf("ApplyTexture : glTexImage2D");
 			glTexImage2D(target, 0, img.GetInterFormat(), img.GetWidth(),
 					img.GetHeight(), 0, img.GetFormat(), GL_UNSIGNED_BYTE,
 					(GLvoid*) img.GetBits());
@@ -801,10 +896,6 @@ HRESULT LJOpenGL::ApplyTexture(LJTexture& tex, int texUnit)
 		LJLog("LJOpenGL", "ERROR, ApplyTexture, texture target not supported");
 		return LJ_FAIL;
 	}
-
-	if(tex.GetParams().size() == 0) {
-		tex.SetDefaultParams();
-	}
 	// set texture parameters
 	if(tex.IsUpdateParam())
 	{
@@ -812,7 +903,7 @@ HRESULT LJOpenGL::ApplyTexture(LJTexture& tex, int texUnit)
 		LJTexture::LJTEXPARAMCONFS::const_iterator it_end = tex.GetParams().end();
 		while(it != it_end)
 		{
-			glTexParameteri(target, GLPNAME[(*it).pname], GLPARAM[(*it).param]);
+			glTexParameteri(target, GLPNAME[it->first], GLPARAM[it->second]);
 			++it;
 		}
 		tex.SetUpdateParam(false);
@@ -851,16 +942,16 @@ LJMatrix4 LJOpenGL::GetViewMatrix2D()
 	return m_MatView2D;
 }
 
-LJMatrix4 LJOpenGL::GetProjectionMatrix(LJDIMENSIONMODE mode, LJSTAGE nStage)
+LJMatrix4 LJOpenGL::GetProjectionMatrix(LJDIMENSIONMODE mode)
 {
 	switch(mode)
 	{
 	case LJ_WEQS:
 		return m_MatProj2D;
 	case LJ_DM_ORTHOGONAL:
-		return m_MatOrth3D[nStage];
+		return m_MatOrth3D;
 	default:
-		return m_MatPers3D[nStage];
+		return m_MatPers3D;
 	}
 }
 
@@ -945,11 +1036,31 @@ void LJOpenGL::ApplyRenderState(const LJRenderState& renderState)
 HRESULT LJOpenGL::ApplyMaterial(int nMaterial)
 {
 	LJGLSLProgram *m_pGpuProgram = NULL;
+
 	// get material
 	LJMaterial *material = m_pMatManager->GetMaterial(nMaterial);
 	if(!material) return LJ_FAIL;
+
+	// Setup texture content
+	int nTextures = material->GetNumOfTextures();
+	for(int i = 0; i < nTextures; ++i)
+	{
+		// i as the OpenGL texture unit
+		LJTexture *tex = m_pTexManager->GetTexture(material->GetTexture(i));
+		ApplyTexture(*tex, i);
+	}
 	// get technique
 	LJTechnique *tech = material->GetCurrentTech();
+
+	// now we have a program with the technique name
+	const char* curPassName = tech->GetCurrentPass();
+	LJPass *pass = tech->GetPass(curPassName);
+
+	// the technique has no pass, can't continue to render
+	if(!pass) return LJ_FAIL;
+
+	ApplyRenderState(pass->GetRenderState());
+
 	// try to find a program with the same material
 	m_pGpuProgram = static_cast<LJGLSLProgram*>(m_pInterProgManager->GetProgram(nMaterial));
 	// not found
@@ -960,55 +1071,21 @@ HRESULT LJOpenGL::ApplyMaterial(int nMaterial)
 		// add to program manager with the name
 		m_pInterProgManager->AddProgram(nMaterial, m_pGpuProgram);
 	}
-	// now we have a program with the technique name
-	const char* curPassName = tech->GetCurrentPass();
-	LJPass *pass = tech->GetPass(curPassName);
-	// the technique has no pass, can't continue to render
-	if(!pass) return LJ_FAIL;
-	// get pass name
-	string passName(curPassName);
+
 	// if need to switch pass
-	if(m_pGpuProgram->GetPassName() != passName)
+	if(m_pGpuProgram->GetPassName() != string(curPassName))
 	{
 		// remember the new current pass in program
-		m_pGpuProgram->SetPassName(passName.c_str());
-		// shoule attach new shader to gpu-program
-		// do not delete the created shaders because using the same tech
-		// just detach the old shaders
-		// this will cause program need to relink
+		m_pGpuProgram->SetPassName(curPassName);
+		// Detach all the old shaders. This will cause program need to relink
 		m_pGpuProgram->DetachAll();
-		// if program does not cache the shader
-		if(!m_pGpuProgram->HasShader(passName.c_str()))
-		{
-			// create shader with shader code of the pass
-			LJGLSLShader *vertShader = new LJGLSLShader();
-			vertShader->SetCode(pass->GetVertCode(),
-							LJGLSLShader::LJ_VERTEX_SHADER);
-			LJGLSLShader *fragShader = new LJGLSLShader();
-			fragShader->SetCode(pass->GetFragCode(),
-						LJGLSLShader::LJ_FRAGMENT_SHADER);
-			// cache the new shaders to program
-			m_pGpuProgram->AddShaders(passName.c_str(), vertShader, fragShader);
-		}	
 	}// else, program use same pass, continue.
-	ApplyRenderState(pass->GetRenderState());
 
-	// set the GPU program as current program
-	BoundGpuProgram(m_pGpuProgram);
-
-	// Setup texture content
-	int nTextures = material->GetNumOfTextures();
-	for(int i = 0; i < nTextures; ++i)
-	{
-		// i as the OpenGL texture unit
-		ApplyTexture(material->GetTexture(i), i);
-	}
-	// for the selected pass, upload shader parameters
-	// if need link
 	if(m_pGpuProgram->IsNeedLink())
 	{
-		LJGLSLShader *vs, *fs;
-		m_pGpuProgram->GetShaders(passName.c_str(), &vs, &fs);
+		// if program does not cache the shader
+		LJGLSLShader *vs = NULL, *fs = NULL;
+		m_pGpuProgram->GetShaders(curPassName, &vs, &fs);
 		if(vs == NULL || fs == NULL)
 		{
 			// create shader with shader code of the pass
@@ -1019,15 +1096,22 @@ HRESULT LJOpenGL::ApplyMaterial(int nMaterial)
 			fs->SetCode(pass->GetFragCode(),
 						LJGLSLShader::LJ_FRAGMENT_SHADER);
 			// cache the new shaders to program
-			m_pGpuProgram->AddShaders(passName.c_str(), vs, fs);
-		}
+			m_pGpuProgram->AddShaders(curPassName, vs, fs);
+		}	
 		m_pGpuProgram->AttachShader(*vs);
 		m_pGpuProgram->AttachShader(*fs);
 		m_pGpuProgram->Link();
 	}
-	// use program
-	m_pGpuProgram->Use();
-	// all material parameters go shader
+	
+	// set the GPU program as current program
+	if(m_pBoundGpuProgram != m_pGpuProgram)
+	{
+		BoundGpuProgram(m_pGpuProgram);
+		// use program
+		m_pGpuProgram->Use();
+	}
+	
+	// send all material parameters to shader
 	LJMaterial::LJMatParams *params = material->GetParams();
 	UpdateShaderParams(params);
 	return LJ_OK;
@@ -1069,10 +1153,13 @@ HRESULT LJOpenGL::RenderGeometry(LJGeometry& geo)
 	// set view projection matrix
 	m_pBoundGpuProgram->SetUniform("ViewProjectionMatrix", m_MatViewProj);
 	// set world view projection matrix
-	m_pBoundGpuProgram->SetUniform("WorldViewProjectionMatrix",
-			m_MatWorldViewProj);
+	m_pBoundGpuProgram->SetUniform("WorldViewProjectionMatrix", m_MatWorldViewProj);
 	// set camera position
 	m_pBoundGpuProgram->SetUniform("CameraPosition", m_CamPos);
+	// set window width
+	m_pBoundGpuProgram->SetUniform("WindowWidth", static_cast<UINT>(m_dwWidth));
+	// set window height 
+	m_pBoundGpuProgram->SetUniform("WindowHeight", static_cast<UINT>(m_dwHeight));
 	if (LJFailed(RenderMesh(*geo.GetMesh())))
 	{
 		hr = LJ_FAIL;
@@ -1091,10 +1178,10 @@ void LJOpenGL::updateViewProjMatrix()
 		m_MatViewProj = m_MatProj2D * m_MatView2D;
 		break;
 	case LJ_DM_ORTHOGONAL:
-		m_MatViewProj = m_MatOrth3D[m_nStage] * m_MatView3D;
+		m_MatViewProj = m_MatOrth3D * m_MatView3D;
 		break;
 	case LJ_DM_PERSPECTIVE:
-		m_MatViewProj = m_MatPers3D[m_nStage] * m_MatView3D;
+		m_MatViewProj = m_MatPers3D * m_MatView3D;
 		break;
 	default:
 		// SHOULD NOT BE HERE
@@ -1112,11 +1199,11 @@ void LJOpenGL::updateWorldViewProjMatrix()
 		m_MatWorldView = m_MatView2D * m_MatWorld;
 		break;
 	case LJ_DM_ORTHOGONAL:
-		m_MatWorldViewProj = m_MatOrth3D[m_nStage] * m_MatView3D * m_MatWorld;
+		m_MatWorldViewProj = m_MatOrth3D * m_MatView3D * m_MatWorld;
 		m_MatWorldView = m_MatView3D * m_MatWorld;
 		break;
 	case LJ_DM_PERSPECTIVE:
-		m_MatWorldViewProj = m_MatPers3D[m_nStage] * m_MatView3D * m_MatWorld;
+		m_MatWorldViewProj = m_MatPers3D * m_MatView3D * m_MatWorld;
 		m_MatWorldView = m_MatView3D * m_MatWorld;
 		break;
 	default:
@@ -1140,6 +1227,7 @@ void LJOpenGL::updateNormalMatrix()
 
 HRESULT LJOpenGL::OneTimeInit(void)
 {
+	m_pTexManager = new LJOGLTextureManager();
 	m_pInterTexManager = new LJInterTextureManager();
 	m_pVCManager = new LJOGLRenderManager(this, m_pLog);
 	m_pMatManager = new LJOGLMaterialManager();

@@ -1,7 +1,6 @@
 #ifndef LJMATERIAL_H_
 #define LJMATERIAL_H_
 
-#include "LJRendererHeaders.h"
 #include "LJGeneralHeaders.h"
 #include "LJTechnique.h"
 #include "LJTexture.h"
@@ -49,6 +48,7 @@ class _LJExport LJMaterial
 public:
 	typedef vector<LJTechnique> LJTechniques;
 	typedef vector<LJTexture> Textures;
+	typedef map<string, UINT> TexIdMap;
 	/*
 	 * Use to hold the type and the memory address of a value.
 	 * Only provide the reading methods
@@ -87,7 +87,7 @@ public:
 	/*
 	 * set texture type parameters
 	 */
-	void SetParam(const char* name, const LJTexture& Tex);
+	void SetParam(const char* name, UINT texID);
 	/*
 	 * Add a technique
 	 */
@@ -107,19 +107,31 @@ public:
 	 */
 	const LJTechniques* GetTechniques() const {return m_Techniques;}
 	LJTechniques* GetTechniques() {return m_Techniques;}
-	/* Set current technique in use */
+	/* 
+	Set current technique in use 
+	*/
 	void SetCurrentTech(const string& name);
-	/* Get current in use technique */
+	/* 
+	Get current in use technique 
+	*/
 	const LJTechnique* GetCurrentTech()const;
 	LJTechnique* GetCurrentTech();
-	/* Get name of current tech */
+	/* 
+	Get name of current tech 
+	*/
 	const char* GetTechName() const;
-	/* Get the texture at the index */
-	LJTexture& GetTexture(UINT index);
-	/* Get the texture with the specified name */
-	const LJTexture* GetTexture(const char* name) const;
-	LJTexture* GetTexture(const char* name);
-	/* Get the number of textures which material has */
+	/* 
+	Get the texture at the index 
+	*/
+	UINT GetTexture(UINT index);
+	/* 
+	Get the texture with the specified name 
+	*/
+	UINT GetTexture(const char* name) const;
+	UINT GetTexture(const char* name);
+	/* 
+	Get the number of textures which material has 
+	*/
 	int GetNumOfTextures() const {return m_nNumTextures;}
 private:
 	/* map of parameters */
@@ -130,8 +142,10 @@ private:
 	UINT m_nNumTextures;
 	/* name of the current technique in use */
 	string *m_strSelectedTech;
-	/* list of texture id */
-	Textures *m_pTextures;
+	/* list of texture ids */
+	UINT m_nTextures[LJ_MAX_MATERIAL_TEXTURES];
+	/* Map of texture id */
+	TexIdMap *m_pTexIdMap;
 	/* copy */
 	void copy(const LJMaterial& mat);
 	/* initialize */
@@ -139,7 +153,7 @@ private:
 	/* finding current technique helper */
 	LJTechnique* InterGetCurrentTech() const;
 	/* helper of finding a named texture */
-	LJTexture* InterGetTexture(const char* name) const;
+	UINT InterGetTexture(const char* name) const;
 };
 
 /*

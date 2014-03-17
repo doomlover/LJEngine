@@ -1,11 +1,10 @@
 #ifndef LJOGLVCMANAGER_H
 #define LJOGLVCMANAGER_H
 
-#include "LJRendererHeaders.h"
 #include "LJRenderDevice.h"
 #include "LJRenderManager.h"
 #include "LJOpenGL.h"
-#include "LJViewPort.h"
+#include "LJRenderPass.h"
 
 #include <vector>
 using std::vector;
@@ -24,12 +23,12 @@ public:
 	/* add a geometry to the render list */
 	HRESULT Render(LJSpatial& scene);
 	/* Create a view-port */
-	LJViewPort* CreateViewPort();
+	LJRenderPass* CreateRenderPass();
 	/* invalid id value */
 	static const UINT MAX_ID = 65536;
 	/* cache list type */
 	typedef vector<LJOGLVCache*> VCACHES;
-	typedef vector<LJViewPort*> VIEWPORTS;
+	typedef vector<LJRenderPass*> RenderPasses;
 private:
 	/* render device */
 	LJOpenGL* m_pLJOGL;
@@ -38,7 +37,7 @@ private:
 	/* cache list */
 	VCACHES *m_pVCaches;
 	/* ViewPorts */
-	VIEWPORTS *m_pViewPorts;
+	RenderPasses *m_pViewPorts;
 	/* number of viewports */
 	int m_nNumViewPorts;
 	/* inter render scene */

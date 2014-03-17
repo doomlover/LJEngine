@@ -8,11 +8,11 @@
 LJTexture::LJTEXPARAMCONFS LJTexture::InitDefaultParams()
 {
 	LJTEXPARAMCONFS params;
-	params.push_back( LJTEXPARAMCONF(LJ_TEXTURE_MIN_FILTER, LJ_LINEAR) );
-	params.push_back( LJTEXPARAMCONF(LJ_TEXTURE_MAG_FILTER, LJ_LINEAR) );
-	params.push_back( LJTEXPARAMCONF(LJ_TEXTURE_WRAP_S, LJ_REPEAT) );
-	params.push_back( LJTEXPARAMCONF(LJ_TEXTURE_WRAP_T, LJ_REPEAT) );
-	params.push_back( LJTEXPARAMCONF(LJ_TEXTURE_WRAP_R, LJ_REPEAT) );
+	params[LJ_TEXTURE_MIN_FILTER]=LJ_LINEAR;
+	params[LJ_TEXTURE_MAG_FILTER]=LJ_LINEAR;
+	params[LJ_TEXTURE_WRAP_S] = LJ_REPEAT;
+	params[LJ_TEXTURE_WRAP_T] = LJ_REPEAT;
+	params[LJ_TEXTURE_WRAP_R] = LJ_REPEAT;
 	return params;
 }
 
@@ -25,12 +25,26 @@ void LJTexture::init()
 	m_dwNum = 0;
 	m_bAlpha = false;
 	m_Target = LJ_TEXTURE_NO_TARGET;
-	m_bUpdateParam = false;
 	m_id = -1;
 	m_bNeedUpdate = false;
-	m_Params = new LJTEXPARAMCONFS();
+	m_Params = new LJTEXPARAMCONFS(m_DefaultParams);
+	m_bUpdateParam = true;
 	m_ImageList = new ImageList();
 	m_pName = new string();
+}
+
+void LJTexture::copy(const LJTexture& tex)
+{
+	m_fAlpha=tex.m_fAlpha;
+	SetColorKeys(tex.m_pClrKeys, tex.m_dwNum);
+	m_bAlpha=tex.m_bAlpha;
+	m_Target=tex.m_Target;
+	*m_Params = *tex.m_Params;
+	m_bUpdateParam = tex.m_bUpdateParam;
+	*m_ImageList = *tex.m_ImageList;
+	m_bNeedUpdate = tex.m_bNeedUpdate;
+	m_id = tex.m_id;
+	*m_pName = *tex.m_pName;
 }
 /*
  * Constructor
@@ -45,16 +59,7 @@ LJTexture::LJTexture()
 LJTexture::LJTexture(const LJTexture& tex)
 {
 	init();
-
-	SetColorKeys(tex.m_pClrKeys, tex.m_dwNum);
-	m_fAlpha=tex.m_fAlpha;
-	m_bAlpha=tex.m_bAlpha;
-	m_Target=tex.m_Target;
-	*m_Params = *tex.m_Params;
-	m_bUpdateParam = tex.m_bUpdateParam;
-	m_bNeedUpdate = tex.m_bNeedUpdate;
-	*m_ImageList = *tex.m_ImageList;
-	*m_pName = *tex.m_pName;
+	copy(tex);
 }
 /*
  * DESTRUCTOR
@@ -82,8 +87,7 @@ LJTexture::~LJTexture(void)
 
 void LJTexture::SetParameter(LJTEXPNAME pname, LJTEXPARAM param)
 {
-	LJTEXPARAMCONF paramConf(pname, param);
-	m_Params->push_back(paramConf);
+	(*m_Params)[pname] = param;
 	m_bUpdateParam = true;
 }
 
@@ -181,23 +185,8 @@ const char* LJTexture::GetName() const {
 	return m_pName->c_str();
 }
 
-void LJTexture::SetDefaultParams()
-{
-	*m_Params = m_DefaultParams;
-	m_bUpdateParam = true;
-}
-
 LJTexture& LJTexture::operator=(const LJTexture& tex)
 {
-	LJLog("LJTexture", "operator=");
-	SetColorKeys(tex.m_pClrKeys, tex.m_dwNum);
-	m_fAlpha = tex.m_fAlpha;
-	m_bAlpha = tex.m_bAlpha;
-	m_Target = tex.m_Target;
-	*m_Params = *tex.m_Params;
-	m_bUpdateParam = tex.m_bUpdateParam;
-	*m_ImageList = *tex.m_ImageList;
-	m_bNeedUpdate = tex.m_bNeedUpdate;
-	*m_pName = *tex.m_pName;
+	copy(tex);
 	return *this;
 }
