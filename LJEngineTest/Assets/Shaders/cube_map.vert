@@ -1,4 +1,4 @@
-#version 120
+#version 400
 // device input/output
 attribute vec3 inPosition;
 attribute vec3 inNormal;

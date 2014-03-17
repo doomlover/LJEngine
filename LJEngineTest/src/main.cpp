@@ -30,7 +30,6 @@ int main(int argc, char **argv)
 	{
 		glfwTerminate();
 	}
-	glfwSetCursorPos(g_pGLFWwindow, Width/2.0f, Height/2.0f);
 	glfwSetInputMode(g_pGLFWwindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 	glfwSetWindowPos(g_pGLFWwindow, 500, 30);
 	glfwMakeContextCurrent(g_pGLFWwindow);

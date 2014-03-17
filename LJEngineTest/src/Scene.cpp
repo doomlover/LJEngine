@@ -12,15 +12,16 @@
 #include "LJShader.h"
 #include "LJRenderState.h"
 #include "LJGeometry.h"
-#include "LJViewPort.h"
+#include "LJRenderPass.h"
 #include "GLFWFrameListener.h"
 #include "LJCameraTools.h"
 #include "LJEffectFileParser.h"
+#include "LJRenderTexture.h"
 
-LJ1stPerCtrller *g_pFirstPersonCamera;
 LJRenderDevice *g_pDevice;
 LJMaterialManager *g_pMatManager;
 LJRenderManager *g_pRenderManager;
+LJTextureManager *g_pTexManager;
 
 vector<LJMesh*> gMeshes;
 
@@ -28,32 +29,33 @@ void SceneInit(LJApplication& app) {
 	g_pDevice = app.m_pDevice;
 	g_pMatManager = app.MaterialManager;
 	g_pRenderManager = app.RenderManager;
+	g_pTexManager = app.TextureManager;
 
-	g_pFirstPersonCamera = app.m_FirstPerCamera;
-	g_pFirstPersonCamera->SetPos(LJVector3(-10.f, 10.f, 0.f));
-	g_pFirstPersonCamera->SetRotation(DegreeToRadian(-45.f), DegreeToRadian(-90.f), 0.f);
-	LJMatrix4 view = BuildViewMatrix(g_pFirstPersonCamera->GetRight(),
-			g_pFirstPersonCamera->GetUp(), g_pFirstPersonCamera->GetDir(),
-			g_pFirstPersonCamera->GetPos());
-	LJViewPort aVP(0.01f, 1000.f, 45.f, 4.0f / 3.0f, LJ_DM_PERSPECTIVE,
-			LJ_STAGE_3D0);
-	LJViewPort *vp = g_pRenderManager->CreateViewPort();
-	*vp = aVP;
-	vp->Camera = g_pFirstPersonCamera;
-	vp->SetupScene(*app.m_RootNode);
-	/* Set Near & Far clip planes and initialize 2D settings */
-	g_pDevice->SetNearFarClip(vp->fNear, vp->fFar);
-	/* initialize 3D projection matrix for LJ_STAGE_3D0 */
-	g_pDevice->InitStage(vp->fFov, vp->fAspectRatio, vp->stage);
-	/* Set 3D view-port */
-	LJVIEWPORT viewport = { 0, 0, app.WindowWidth, app.WindowHeight };
-	g_pDevice->SetViewport(vp->stage, viewport);
-	g_pDevice->SetClearColor(0.1f, 0.0f, 0.1f);
+	app.m_FirstPerCamera->SetPos(LJVector3(-10.f, 10.f, 10.f));
+	app.m_FirstPerCamera->SetRotation(-atan(1.f/1.414f), DegreeToRadian(-45.f), 0.f);
+	LJMatrix4 view = BuildViewMatrix(app.m_FirstPerCamera->GetRight(),
+			app.m_FirstPerCamera->GetUp(), app.m_FirstPerCamera->GetDir(),
+			app.m_FirstPerCamera->GetPos());
 
-	UINT nMat0 = g_pMatManager->CreateMaterial("Assets/Effectfiles/CubeMap.ef");
-	UINT nMat1 = g_pMatManager->CreateMaterial("Assets/Effectfiles/Lighting.ef");
-	UINT nMat2 = g_pMatManager->CreateMaterial("Assets/Effectfiles/NormalMap.ef");
-	UINT nMat3 = g_pMatManager->CreateMaterial("Assets/Effectfiles/ProjectTexture.ef");
+	LJRenderPass *renderPass0 = g_pRenderManager->CreateRenderPass();
+	renderPass0->SetPerspective(45.f, 4.0f / 3.0f, 0.01f, 1000.f);
+	renderPass0->SetProjectionMode(LJ_DM_PERSPECTIVE);
+	renderPass0->Camera = app.m_FirstPerCamera;
+	renderPass0->viewPort = LJVIEWPORT(0, 0, app.WindowWidth, app.WindowHeight);
+	renderPass0->SetupScene(*app.m_RootNode);
+	// offscreen framebuffer
+	UINT nOffTex0;
+	LJTexture *offTex0 = g_pTexManager->CreateTexture(&nOffTex0);
+	offTex0->SetTarget(LJ_TEXTURE_2D);
+	LJRenderTexture renderTex0(app.WindowWidth, app.WindowHeight, LJ_RGBA, nOffTex0, offTex0);
+	LJRenderTexture depthTex0(app.WindowWidth, app.WindowHeight, LJ_DEPTH_COMPONENT);
+	renderPass0->fb.AddRenderTexture(renderTex0);
+	renderPass0->fb.SetDepthTexture(depthTex0);
+
+	UINT nMat0 = g_pMatManager->CreateMaterial("Assets/Effectfiles/CubeMap.ef", g_pTexManager);
+	UINT nMat1 = g_pMatManager->CreateMaterial("Assets/Effectfiles/Lighting.ef", g_pTexManager);
+	UINT nMat2 = g_pMatManager->CreateMaterial("Assets/Effectfiles/NormalMap.ef", g_pTexManager);
+	UINT nMat3 = g_pMatManager->CreateMaterial("Assets/Effectfiles/ProjectTexture.ef", g_pTexManager);
 
 	// TEAPOT0
 	LJMesh *pMesh = LoadMode("Assets/Modes/teapot.obj");
@@ -82,15 +84,6 @@ void SceneInit(LJApplication& app) {
 	pGeo4->SetMaterial(nMat1);
 	app.m_RootNode->AttachChild(*pGeo4);
 
-	// PLANE
-//	LJMesh *pMesh3 = LoadMode("Assets/Modes/plane.obj");
-//	gMeshes.push_back(pMesh3);
-//	LJGeometry *pGeo5 = new LJGeometry();
-//	pGeo5->SetMesh(pMesh3);
-//	pGeo5->SetMaterial(nMat3);
-//	LJVector3 color(0.5f, 0.5f, 1.0f);
-//	app.m_RootNode->AttachChild(*pGeo5);
-
 	// TEAPOT1
 	LJGeometry *pGeo3 = new LJGeometry();
 	pGeo3->SetMesh(pMesh);
@@ -117,4 +110,38 @@ void SceneInit(LJApplication& app) {
 	pTex3->SetParameter(LJ_TEXTURE_WRAP_S, LJ_CLAMP_TO_BORDER);
 	pTex3->SetParameter(LJ_TEXTURE_WRAP_T, LJ_CLAMP_TO_BORDER);
 */
+	// Rectangle scene
+	static const float rect_vertex_data[] = {
+    -1.0f, -1.0f, 0.0f,
+    1.0f, -1.0f, 0.0f,
+    -1.0f,  1.0f, 0.0f,
+    -1.0f,  1.0f, 0.0f,
+    1.0f, -1.0f, 0.0f,
+    1.0f,  1.0f, 0.0f,
+	};
+	static const float rect_texcoord_data[] = {
+		0.0f, 0.0f,
+		1.0f, 0.0f,
+		0.0f, 1.0f, 
+		0.0f, 1.0f,
+		1.0f, 0.0f,
+		1.0f, 1.0f
+	};
+	LJMesh *pMeshRect = new LJMesh();
+	pMeshRect->SetBuffer((void*)rect_vertex_data, 3, sizeof(rect_vertex_data)/sizeof(float), LJVertexBuffer::Float, "inPosition",
+		LJVertexBuffer::LJ_ARRAY_BUFFER, LJVertexBuffer::LJ_STATIC_DRAW);
+	pMeshRect->SetBuffer((void*)rect_texcoord_data, 2, sizeof(rect_texcoord_data)/sizeof(float), LJVertexBuffer::Float, "inTexcoord",
+		LJVertexBuffer::LJ_ARRAY_BUFFER, LJVertexBuffer::LJ_STATIC_DRAW);
+	LJGeometry *pGeoRect = new LJGeometry();
+	pGeoRect->SetMesh(pMeshRect);
+	UINT nMatRect = g_pMatManager->CreateMaterial("Assets/Effectfiles/Post.ef", g_pTexManager);
+	LJMaterial *pMatRect = g_pMatManager->GetMaterial(nMatRect);
+	pMatRect->SetParam("renderTex", nOffTex0);
+	pGeoRect->SetMaterial(nMatRect);
+	LJRenderPass *renderPass1 = g_pRenderManager->CreateRenderPass();
+	// no camera, no projection, on screen framebuffer(default)
+	renderPass1->viewPort = LJVIEWPORT(0, 0, app.WindowWidth, app.WindowHeight);
+	LJNode *scene = new LJNode();
+	scene->AttachChild(*pGeoRect);
+	renderPass1->SetupScene(*scene);
 }

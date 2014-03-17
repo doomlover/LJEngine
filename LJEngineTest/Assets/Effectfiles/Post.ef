@@ -1,0 +1,9 @@
+Technique Tec0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/EdgeFilter.vert
+		fs = Assets/Shaders/EdgeFilter.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}

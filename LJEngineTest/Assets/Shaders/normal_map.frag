@@ -1,4 +1,4 @@
-#version 120
+#version 400
 
 #ifndef NUM_LIGHTS
 #define NUM_LIGHTS 1
