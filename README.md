@@ -21,4 +21,4 @@ LJGeneral
 
 测试
 
-暂时使用glfw进行窗口管理，配置OpenGL profile和接受事件。使用glfw的定时器实现引擎定时器接口。Frame Listener同样基于glfw实现。
+暂时使用glfw进行窗口管理，配置OpenGL profile和接受事件。使用glfw的定时器实现引擎定时器接口。Frame Listener同样基于glfw实现。封装了基于Assimp的模型加载例程，暂时由测试程序使用。
