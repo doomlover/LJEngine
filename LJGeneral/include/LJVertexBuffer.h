@@ -67,6 +67,7 @@ public:
 	int GetStride() const;
 	bool GetNormalized() const;
 	bool IsNeedUpdate() const;
+	void SetNeedUpdate(bool up);
 	int GetID() const;
 	void SetAttribName(const char* chName);
 	void SetID(int id);

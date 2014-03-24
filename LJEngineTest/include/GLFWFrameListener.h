@@ -26,5 +26,3 @@ public:
 
 	void static GLFWWindwoFocusCB(GLFWwindow *window, int hasFocus);
 };
-
-void GLFWKeyCB(GLFWwindow* window, int key, int scancode, int action, int mods);

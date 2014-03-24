@@ -39,81 +39,14 @@ void GLFWFrameListener::FrameEnded(float tpf, LJApplication *app)
 		if(glfwWindowShouldClose(m_pWindow))
 		{
 			if(app)
-				app->m_bStop = true;
+				app->Stop();
 		}
 	}
 }
 
 void GLFWFrameListener::UpdateCamera(float tpf, LJApplication *app)
 {
-	LJ1stPerCtrller *m_Camera = app->m_FirstPerCamera;
-	bool update = false;
-	double posx, posy;
-	glfwGetCursorPos(m_pWindow, &posx, &posy);
-	glfwSetCursorPos(m_pWindow, w2, h2);
-	posx = w2-posx;
-	posy = h2-posy;
-	if(posx != 0)
-	{
-		// camera reverse rotate around Y
-		if(posx < 0)
-		{
-			m_Camera->SetRotationSpeedY(-0.9f);
-		}
-		else {
-			m_Camera->SetRotationSpeedY(0.9f);
-		}
-		update = true;
-	}
-	if(posy != 0)
-	{
-		// camera reverse rotate around X
-		if(posy < 0)
-		{
-			m_Camera->SetRotationSpeedX(-0.9f);
-		}
-		else {
-			m_Camera->SetRotationSpeedX(0.9f);
-		}
-		update = true;
-	}
-	if((glfwGetKey(m_pWindow, GLFW_KEY_W)) == GLFW_PRESS)
-	{
-		m_Camera->SetSpeed(-5);
-		update = true;
-	}
-	if((glfwGetKey(m_pWindow, GLFW_KEY_S)) == GLFW_PRESS)
-	{
-		m_Camera->SetSpeed(5);
-		update = true;
-	}
-	if((glfwGetKey(m_pWindow, GLFW_KEY_A)) == GLFW_PRESS)
-	{
-		m_Camera->SetSlideSpeed(-5);
-		update = true;
-	}
-	if((glfwGetKey(m_pWindow, GLFW_KEY_D)) == GLFW_PRESS)
-	{
-		m_Camera->SetSlideSpeed(5);
-		update = true;
-	}
-	if(glfwGetKey(m_pWindow, GLFW_KEY_UP) == GLFW_PRESS)
-	{
-		m_Camera->SetPos(m_Camera->GetPos() + LJVector3(0.f, 0.05f, 0.f));
-		update = true;
-	}
-	if(glfwGetKey(m_pWindow, GLFW_KEY_DOWN) == GLFW_PRESS)
-	{
-		m_Camera->SetPos(m_Camera->GetPos() - LJVector3(0.f, 0.05f, 0.f));
-		update = true;
-	}
-	if (update) {
-		m_Camera->Update(tpf);
-		m_Camera->SetSpeed(0);
-		m_Camera->SetSlideSpeed(0);
-		m_Camera->SetRotationSpeedX(0);
-		m_Camera->SetRotationSpeedY(0);
-	}
+	/*app->UpdateCamera(tpf);*/
 }
 
 void GLFWFrameListener::SetGlfwWindow(GLFWwindow *window, double w, double h)
@@ -124,16 +57,6 @@ void GLFWFrameListener::SetGlfwWindow(GLFWwindow *window, double w, double h)
 	sw2 = w2;
 	sh2 = h2;
 	glfwSetWindowFocusCallback(window, GLFWFrameListener::GLFWWindwoFocusCB);
-}
-
-void GLFWKeyCB(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) 
-	{
-		glfwSetWindowShouldClose(window, GL_TRUE);
-		return ;
-	}
-	
 }
 
 void GLFWFrameListener::GLFWWindwoFocusCB(GLFWwindow *window, int hasFocus)

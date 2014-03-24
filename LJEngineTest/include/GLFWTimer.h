@@ -12,6 +12,7 @@ public:
 	float GetTimePerFrame();
 	void Reset();
 	float GetTime();
+	void SetTime(double time);
 };//~GLFWTimer
 
 #endif

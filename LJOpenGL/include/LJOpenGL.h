@@ -27,7 +27,8 @@ class LJOGLTextureManager;
 class LJOpenGL : public LJRenderDevice
 {
 public:
-	LJOpenGL(void);
+	static LJOpenGL* GetInstance();
+
 	~LJOpenGL(void);
 
 	HRESULT Init(HWND, const HWND*, int, int, int, bool, int winWidth, int winHeight);
@@ -52,12 +53,12 @@ public:
 	// Set camera setting with Position, Look-at, Up
 	void SetCamera(const LJVector3& v3Pos, const LJVector3& v3Lookat, const LJVector3 v3Up);
 	// Directly set
-	void SetCamera(LJMatrix4& viewMatrix);
+	void SetCamera(const LJMatrix4& viewMatrix);
 	// set projection, both perspective matrix and orthogonal matrix are calculated. Use SetMode to choose mode
 	void SetPerspective(float fFov, float fAspect, float fNear, float fFar);
 	// Set stage View-Port
 	void SetViewport(LJVIEWPORT& viewport);
-	// Set mode and stage
+	// Set projection mode
 	void SetMode(LJDIMENSIONMODE mode);
 	/* Set Local-to-World Matrix */
 	void SetWorldMatrix(LJMatrix4& matWorld);
@@ -113,7 +114,7 @@ private:
 	char m_chAdapter[256]; 	// graphics adapter name
 	FILE *m_pLog;  			// log-file
 	bool m_bRunning;
-	bool m_bIsSceneRunning;
+	//bool m_bIsSceneRunning;
 	bool m_bStencil;
 	LJCOLOR m_ClearColor;
 	bool m_bViewUpdate;
@@ -142,7 +143,7 @@ private:
 	LJOGLFramebuffer m_OGLFBs[LJ_MAX_RENDER_PASSES];
 
 	LJDIMENSIONMODE m_Mode; 					// the current mode
-	LJSTAGE m_nStage;							// the current stage
+	//LJSTAGE m_nStage;							// the current stage
 	LJVIEWPORT m_Vp;							// the current view-port
 
 	LJMatrix4 m_MatView3D;						// view-matrix for 3D
@@ -150,7 +151,6 @@ private:
 	LJMatrix4 m_MatOrth3D;		// orthogonal-matrixes for 3D
 
 	// world equals to screen setting
-	LJVIEWPORT m_Vp2D;							// the screen ViewPort
 	LJMatrix4 m_MatView2D;						// view-matrix for 2D
 	LJMatrix4 m_MatProj2D;						// orthogonal-matrix for 2D
 
@@ -167,6 +167,8 @@ private:
 	HRESULT Go(void);
 	// log information
 	void Log(char *, ...);
+	// update matrixes
+	void updateMatrixes();
 	// calculate view-projection matrix
 	void updateViewProjMatrix();
 	// calculate world-view-projection matrix
@@ -181,6 +183,10 @@ private:
 	HRESULT getError(FILE *pLog);
 	// generate a OpenGL texture object for a LJTexture
 	UINT GenOGLTexture(LJTexture& tex);
+
+	LJOpenGL(void);
+
+	LJOpenGL(const LJOpenGL& device);
 };
 
 extern "C" {

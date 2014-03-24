@@ -1,0 +1,9 @@
+Technique Tec0 : Selected {
+	Pass ps0 : Selected {
+		vs = Assets/Shaders/Guass2.vert
+		fs = Assets/Shaders/Guass2.frag
+		RenderState {
+			Depth 1
+		}
+	}
+}

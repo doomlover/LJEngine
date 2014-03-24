@@ -24,10 +24,6 @@
 #include <string>
 
 /*
- * Globe Device Pointer
- */
-LJOpenGL *g_LJOpenGL = NULL;
-/*
  * OpenGL Error Checker
  */
 HRESULT LJOpenGL::getError(FILE *pLog) {
@@ -142,15 +138,23 @@ GLenum LJOpenGL::DEVICE_RENDER_STATE_VALUE[35] =
 		GL_FILL
 };
 
+LJOpenGL* LJOpenGL::GetInstance()
+{
+	static LJOpenGL* device = NULL;
+	if(device == NULL)
+	{
+		device = new LJOpenGL();
+	}
+	return device;
+}
+
 LJOpenGL::LJOpenGL(void) 
 {
 	LJLog("LJOpenGL", "constructor");
 	m_pLog = NULL;
 	m_bRunning = false;
-	m_bIsSceneRunning = false;
 	m_nActivehWnd = 0;
 	m_bStencil = false;
-	g_LJOpenGL = this;
 	m_bViewUpdate = false;
 	m_bWorldUpdate = false;
 	m_pInterTexManager = NULL;
@@ -284,7 +288,6 @@ HRESULT LJOpenGL::Go(void) {
 	}
 */
 	m_bRunning = true;
-	m_bIsSceneRunning = false;
 
 	OneTimeInit();
 
@@ -293,7 +296,6 @@ HRESULT LJOpenGL::Go(void) {
 
 HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil)
 {
-	HRESULT ret = LJ_FAIL;
 	// Use default OpenGL framebuffer
 	if(m_pOGLFB->m_Fb != NULL)
 	{
@@ -325,12 +327,12 @@ HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil)
 					for(UINT i = 0; i < nRenderTexes; ++i)
 					{
 						ApplyRenderTexture(*fb->GetRenderTexture(i), i);
-						ret = glGetError();
 						drawBuffers.push_back(GL_COLOR_ATTACHMENT0 + i);
 					}
 					if(ApplyDepthTexture(*depthBuffer, nRenderTexes))
 					{
-						drawBuffers.push_back(GL_DEPTH_ATTACHMENT);
+						// depth information is automatically output by fragment shader
+						drawBuffers.push_back(GL_NONE);
 					}
 					glDrawBuffers(drawBuffers.size(), drawBuffers.data());
 					if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -344,29 +346,8 @@ HRESULT LJOpenGL::BeginRendering(bool bColor, bool bDepth, bool bStencil)
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	glViewport(m_Vp.x, m_Vp.y, m_Vp.width, m_Vp.height);
-	DWORD dw = 0;
-	if (bColor || bDepth || bStencil) {
-		if (bColor)
-			dw |= GL_COLOR_BUFFER_BIT;
-		if (bDepth)
-			dw |= GL_DEPTH_BUFFER_BIT;
-		if (bStencil && m_bStencil)
-			dw |= GL_STENCIL_BUFFER_BIT;
 
-		glClearColor(m_ClearColor.fR, m_ClearColor.fG, m_ClearColor.fB,
-				m_ClearColor.fA);
-		glClear(dw);
-	}
-
-	m_bIsSceneRunning = true;
-
-	ret = glGetError();
-	if (ret == GL_NO_ERROR)
-		return LJ_OK;
-	else {
-		fprintf(m_pLog, "glGetError : %u\n", (GLuint) ret);
-		return LJ_FAIL;
-	}
+	return Clear(bColor, bDepth, bStencil);
 }
 
 UINT LJOpenGL::GenOGLTexture(LJTexture& tex)
@@ -496,8 +477,8 @@ void LJOpenGL::SetFramebuffer(LJFramebuffer& fb, UINT renderPassIndex)
 	m_pOGLFB = &m_OGLFBs[renderPassIndex];
 }
 
-HRESULT LJOpenGL::Clear(bool bColor, bool bDepth, bool bStencil) {
-	LJLog("LJOpenGL", "Clear");
+HRESULT LJOpenGL::Clear(bool bColor, bool bDepth, bool bStencil)
+{
 	HRESULT ret = LJ_FAIL;
 
 	DWORD dw = 0;
@@ -514,17 +495,13 @@ HRESULT LJOpenGL::Clear(bool bColor, bool bDepth, bool bStencil) {
 		glClear(dw);
 	}
 
-	if (m_bIsSceneRunning) {
-		// m_pDevice->BeginScene();
-	}
-
 	ret = getError(m_pLog);
 	return ret;
 }
 
-void LJOpenGL::EndRendering(void) {
-	//m_pDevice->EndScene();
-	m_bIsSceneRunning = false;
+void LJOpenGL::EndRendering(void)
+{
+	// do nothing
 }
 
 void LJOpenGL::SetClearColor(float fRed, float fGreen, float fBlue) {
@@ -582,7 +559,7 @@ void LJOpenGL::SetCamera(const LJVector3& v3Pos, const LJVector3& v3Lookat, cons
 /*
  * Directly set View Matrix
  */
-void LJOpenGL::SetCamera(LJMatrix4& viewMatrix)
+void LJOpenGL::SetCamera(const LJMatrix4& viewMatrix)
 {
 	m_MatView3D = viewMatrix;
 	m_bViewUpdate = true;
@@ -816,6 +793,7 @@ HRESULT LJOpenGL::RenderMesh(LJMesh& mesh)
 					pIndexBuffer->GetData(),
 					get_buffer_usage(pIndexBuffer->GetUsage())
 					);
+			pIndexBuffer->SetNeedUpdate(false);
 		}
 		glDrawElements(get_mode(mesh.GetMode()), pIndexBuffer->GetSize(),
 				GLTYPE[pIndexBuffer->GetType()],
@@ -1132,9 +1110,7 @@ HRESULT LJOpenGL::RenderGeometry(LJGeometry& geo)
 	// set world matrix
 	SetWorldMatrix(matWorld);
 
-	updateViewProjMatrix();
-
-	updateWorldViewProjMatrix();
+	updateMatrixes();
 	// set view matrix
 	if (m_Mode == LJ_DM_PERSPECTIVE)
 	{
@@ -1170,6 +1146,20 @@ HRESULT LJOpenGL::RenderGeometry(LJGeometry& geo)
 /* ==========================================================
 				       PRIVATE FUNCTIONS
    ========================================================== */
+void LJOpenGL::updateMatrixes()
+{
+	if(m_bViewUpdate)
+	{
+		updateViewProjMatrix();
+	}
+	if(m_bWorldUpdate || m_bViewUpdate)
+	{
+		updateWorldViewProjMatrix();
+	}
+	m_bViewUpdate = false;
+	m_bWorldUpdate = false;
+}
+
 void LJOpenGL::updateViewProjMatrix()
 {
 	switch(m_Mode)
@@ -1195,15 +1185,15 @@ void LJOpenGL::updateWorldViewProjMatrix()
 	switch(m_Mode)
 	{
 	case LJ_WEQS:
-		m_MatWorldViewProj = m_MatProj2D * m_MatView2D * m_MatWorld;
+		m_MatWorldViewProj = m_MatViewProj * m_MatWorld;
 		m_MatWorldView = m_MatView2D * m_MatWorld;
 		break;
 	case LJ_DM_ORTHOGONAL:
-		m_MatWorldViewProj = m_MatOrth3D * m_MatView3D * m_MatWorld;
+		m_MatWorldViewProj = m_MatViewProj * m_MatWorld;
 		m_MatWorldView = m_MatView3D * m_MatWorld;
 		break;
 	case LJ_DM_PERSPECTIVE:
-		m_MatWorldViewProj = m_MatPers3D * m_MatView3D * m_MatWorld;
+		m_MatWorldViewProj = m_MatViewProj * m_MatWorld;
 		m_MatWorldView = m_MatView3D * m_MatWorld;
 		break;
 	default:
@@ -1234,8 +1224,6 @@ HRESULT LJOpenGL::OneTimeInit(void)
 	m_pInterProgManager = new LJProgramManager();
 	m_pImgManager = new LJImageManager();
 	m_Mode = LJ_DM_PERSPECTIVE;
-	// no active stage
-	m_nStage = LJ_STAGE_MAX;
 	return LJ_OK;
 }
 

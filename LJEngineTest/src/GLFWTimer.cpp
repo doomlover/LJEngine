@@ -34,3 +34,8 @@ float GLFWTimer::GetTime()
 {
 	return glfwGetTime();
 }
+
+void GLFWTimer::SetTime(double time)
+{
+	glfwSetTime(time);
+}

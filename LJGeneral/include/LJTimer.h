@@ -12,6 +12,7 @@ public:
 	virtual float GetTimePerFrame() = 0;
 	virtual void Reset() = 0;
 	virtual float GetTime() = 0;
+	virtual void SetTime(double time) = 0;
 };
 
 #endif

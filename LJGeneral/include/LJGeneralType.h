@@ -13,8 +13,8 @@ namespace ljrenderer
 typedef unsigned char UCHAR;
 typedef UCHAR BYTE;
 typedef unsigned short WORD;
-typedef unsigned long DWORD;
-typedef unsigned int UINT;
+typedef unsigned int DWORD;
+typedef DWORD UINT;
 typedef DWORD ULONG;
 typedef ULONG HRESULT;
 typedef void *PVOID;

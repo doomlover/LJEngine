@@ -64,7 +64,7 @@ public:
 	// Set camera setting with Pos, Lookat, Up
 	virtual void SetCamera(const LJVector3& v3Pos, const LJVector3& v3Lookat, const LJVector3 v3Up) = 0;
 	// Directly set
-	virtual void SetCamera(LJMatrix4& viewMatrix) = 0;
+	virtual void SetCamera(const LJMatrix4& viewMatrix) = 0;
 	// set projection
 	virtual void SetPerspective(float fFov, float fAspect, float fNear, float fFar) = 0;
 	// Set stage viewport

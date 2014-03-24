@@ -87,6 +87,11 @@ bool LJVertexBuffer::IsNeedUpdate() const
 	return m_bNeedUpdate;
 }
 
+void LJVertexBuffer::SetNeedUpdate(bool up)
+{
+	m_bNeedUpdate = up;
+}
+
 int LJVertexBuffer::GetID() const
 {
 	int ret = m_id;

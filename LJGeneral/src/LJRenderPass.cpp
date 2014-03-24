@@ -8,10 +8,6 @@ LJRenderPass::LJRenderPass(UINT index)
 
 LJRenderPass::~LJRenderPass(void)
 {
-	if(Camera)
-	{
-		delete Camera;
-	}
 }
 
 void LJRenderPass::SetupScene(LJNode& scene)

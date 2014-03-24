@@ -25,9 +25,9 @@ inline void LJLog(const char* tag, const char* msg)
 inline void  _LJExport LJSleep(DWORD ms)
 {
 #ifdef _LJ_WIN32
-			Sleep((DWORD)ms);
+			Sleep(ms);
 #elif defined _LJ_LINUX
-			usleep((DWORD)ms);
+			usleep(ms*1000);
 #endif
 }
 

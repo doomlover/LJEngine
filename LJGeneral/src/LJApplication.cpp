@@ -5,9 +5,7 @@
 #include <assert.h>
 #include <time.h>
 
-float LJApplication::targetTpf = 16.6666f;
-
-LJApplication::LJApplication(const char* chAPI = "OpenGL")
+LJApplication::LJApplication()
 	:RenderManager(NULL),
 	MaterialManager(NULL),
 	TextureManager(NULL),
@@ -15,20 +13,13 @@ LJApplication::LJApplication(const char* chAPI = "OpenGL")
 	WindowWidth(800),
 	WindowHeight(600),
 	m_bStop(false),
-	m_pWindow(NULL),
 	m_Timer(NULL),
 	m_pRenderer(NULL),
-	m_OnDestroyFunc(NULL),
-	m_OnStartFunc(NULL),
-	m_OnUpdateFunc(NULL),
-	m_OnDrawFunc(NULL),
-	m_pFrameListeners(NULL)
+	m_pFrameListeners(NULL),
+	m_bInitialized(false)
 {
-	m_strAPI = new string(chAPI);
-	m_RootNode = new LJNode();
+	m_strAPI = new string("OpenGL");
 	m_pFrameListeners = new FRAMELISTENERS();
-	m_FirstPerCamera = new LJ1stPerCtrller();
-	m_FreeCamera = new LJFreeCtrller();
 }
 
 LJApplication::~LJApplication(void)
@@ -46,21 +37,9 @@ LJApplication::~LJApplication(void)
 			++it;
 		}
 	}
-	if(m_RootNode)
-	{
-		delete m_RootNode;
-	}
 	if(m_Timer)
 	{
 		delete m_Timer;
-	}
-	if(m_FirstPerCamera)
-	{
-		delete m_FirstPerCamera;
-	}
-	if(m_FreeCamera)
-	{
-		delete m_FreeCamera;
 	}
 }
 
@@ -89,35 +68,10 @@ void LJApplication::Initialize()
 	RenderManager = m_pDevice->GetRenderManager();
 	TextureManager = m_pDevice->GetTextureManager();
 
-	if(m_OnStartFunc)
-		m_OnStartFunc(*this);
+	SimpleInit();
+
 	if(m_Timer)
 		m_Timer->Reset();
-}
-
-void LJApplication::Update()
-{
-	m_Timer->Update();
-}
-
-void LJApplication::SetOnDestroyCallback(LJOnDestroyListener func)
-{
-	m_OnDestroyFunc = func;
-}
-
-void LJApplication::SetOnStartCallback(LJOnStartListener func)
-{
-	m_OnStartFunc = func;
-}
-
-void LJApplication::SetOnUpdateCallback(LJOnUpdateListener func)
-{
-	m_OnUpdateFunc = func;
-}
-
-void LJApplication::SetOnDrawCallback(LJOnDrawListener func)
-{
-	m_OnDrawFunc = func;
 }
 
 void LJApplication::AddFrameListener(LJFrameListener *listener)
@@ -130,8 +84,7 @@ void LJApplication::AddFrameListener(LJFrameListener *listener)
 
 void LJApplication::CleanUp()
 {
-	if(m_OnDestroyFunc)
-		m_OnDestroyFunc();
+	SimpleCleanUp();
 
 	if(m_pRenderer)
 	{
@@ -142,6 +95,11 @@ void LJApplication::CleanUp()
 
 void LJApplication::Run(void)
 {
+	if(!m_bInitialized)
+	{
+		Initialize();
+		m_bInitialized = true;
+	}
 	if(!m_Timer)
 	{
 		CleanUp();
@@ -150,8 +108,8 @@ void LJApplication::Run(void)
 	while(!m_bStop)
 	{
 		float tpf = m_Timer->GetTimePerFrame();
+		// previous frame
 		FRAMELISTENERS::iterator it = m_pFrameListeners->begin();
-
 		while(it != m_pFrameListeners->end())
 		{
 			(*it)->FrameStarted(tpf, this);
@@ -159,7 +117,7 @@ void LJApplication::Run(void)
 		}
 		// render scene once
 		RenderManager->ForcedFlushAll();
-
+		// post frame
 		it = m_pFrameListeners->begin();
 		while(it != m_pFrameListeners->end())
 		{
@@ -167,24 +125,13 @@ void LJApplication::Run(void)
 			++it;
 		}
 
-		Update();
-		float sleepTime = targetTpf - tpf * 1000;
+		float sleepTime = 16.6666 - tpf * 1000;
 		if(sleepTime > 0)
 		{
 			LJSleep((DWORD)sleepTime);
 		}
+		m_Timer->Update();
 	}
 
 	CleanUp();
-}
-
-LJApplication& LJApplication::GetApp(const char *chAPI)
-{
-	static LJApplication *gpSingleton = NULL;
-	if(gpSingleton == NULL)
-	{
-		gpSingleton = new LJApplication(chAPI);
-	}
-	assert(gpSingleton);
-	return *gpSingleton;
 }

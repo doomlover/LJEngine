@@ -19,24 +19,18 @@ class LJFrameListener;
 class LJ1stPerCtrller;
 class LJFreeCtrller;
 
-typedef void(*LJOnStartListener)(LJApplication& app);
-typedef void(*LJOnDestroyListener)(void);
-typedef void (*LJOnUpdateListener)(float tpf);
-typedef void (*LJOnDrawListener)(void);
-
 class _LJExport LJApplication
 {
 public:
-	~LJApplication(void);
-	static LJApplication& GetApp(const char *chAPI);
-
+	LJApplication();
+	virtual ~LJApplication(void);
 	void Run(void);
-	void SetOnDestroyCallback(LJOnDestroyListener func);
-	void SetOnStartCallback(LJOnStartListener func);
-	void SetOnUpdateCallback(LJOnUpdateListener func);
-	void SetOnDrawCallback(LJOnDrawListener func);
+	void Stop() { m_bStop = true; }
 	void AddFrameListener(LJFrameListener *listener);
-	void Initialize();
+
+protected:
+	virtual void SimpleInit() = 0;
+	virtual void SimpleCleanUp() = 0;
 
 	LJRenderManager *RenderManager;
 	LJMaterialManager *MaterialManager;
@@ -45,26 +39,17 @@ public:
 	int WindowWidth;
 	int WindowHeight;
 	bool m_bStop;
-	LJNode *m_RootNode;
-	HWND m_pWindow;
 	LJTimer *m_Timer;
-	LJ1stPerCtrller *m_FirstPerCamera;
-	LJFreeCtrller *m_FreeCamera;
 	typedef vector<LJFrameListener*> FRAMELISTENERS;
+
 private:
 	LJRenderer *m_pRenderer;
-	LJOnDestroyListener m_OnDestroyFunc;
-	LJOnStartListener m_OnStartFunc;
-	LJOnUpdateListener m_OnUpdateFunc;
-	LJOnDrawListener m_OnDrawFunc;
 	string *m_strAPI;
 	FRAMELISTENERS *m_pFrameListeners;
-	void Update();
-	void CleanUp();
-	LJApplication(const char* chAPI);
-	LJApplication(LJApplication& app);
+	bool m_bInitialized;
 
-	static float targetTpf;
+	void Initialize();
+	void CleanUp();
 };//~LJApplication
 
 #endif

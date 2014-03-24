@@ -11,7 +11,7 @@ HRESULT CreateRenderDevice(LJRenderDevice **pDevice)
 {
 	if(!(*pDevice))
 	{
-		*pDevice = new LJOpenGL();
+		*pDevice = LJOpenGL::GetInstance();
 		return LJ_OK;
 	}
 	return LJ_FAIL;
