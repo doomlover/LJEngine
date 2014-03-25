@@ -1,5 +1,6 @@
 #ifndef LJMAT33_H_
 #define LJMAT33_H_
+#include "LJUtilFunc.h"
 #include <assert.h>
 #include <iostream>
 namespace ljm{
@@ -145,11 +146,7 @@ LJMat33<T> transpose(const LJMat33<T>& m)
 	ret[2] = typename LJMat33<T>::colType(m[0][2], m[1][2], m[2][2]);
 	return ret;
 }
-template<typename T>
-T absT(const T& v)
-{
-	return (v < T(0)) ? -v : v;
-}
+
 template<typename T>
 bool inverse(const LJMat33<T>& m, LJMat33<T> *inv)
 {

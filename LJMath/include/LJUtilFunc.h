@@ -106,5 +106,11 @@ LJVector4t<T> normalize(const LJVector4t<T>& v)
 	return v*inverse_length;
 }
 
+template<typename T>
+T absT(const T& v)
+{
+	return (v < T(0)) ? -v : v;
+}
+
 }
 #endif /* LJUTILFUNC_H_ */

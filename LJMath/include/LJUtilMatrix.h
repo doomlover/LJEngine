@@ -121,6 +121,115 @@ LJMat33<T> S(const LJVector3t<T>& n, const T& k)
 		k1*xz, k1*yz, 1+k1*zz
 		);
 }
+/*
+ * Calculate eigenvalues and eigenvectors of 3x3 matrix
+ * Section 16.3 of Mathematics for 3D Game Programming and Computer Graphics
+ */
+template<typename T>
+LJMat33<T> EigenSystem(const LJMat33<T>& m, float *eigenVals)
+{
+	float epsilon = 1.0e-10F;
+	int maxSweeps = 32;
+
+	float m11 = m[0][0];
+	float m12 = m[1][0];
+	float m13 = m[2][0];
+	float m22 = m[1][1];
+	float m23 = m[2][1];
+	float m33 = m[2][2];
+
+	LJMat33<T> r;
+	for(int i = 0; i < maxSweeps; ++i)
+	{
+		if((absT(m12) < epsilon) &&
+		    (absT(m13) < epsilon) &&
+		    (absT(m23) < epsilon))
+		{
+			break;
+		}
+		if(m12 != 0.0f)
+		{
+			float u = (m22 - m11) * 0.5f / m12;
+			float u2 = u * u;
+			float u2p1 = u2 + 1.0f;
+			float t = (u2p1 != u2) ?
+					((u < 0.0f) ? -1.0f : 1.0f) * (sqrt(u2p1) - absT(u)) :
+					0.5f / u;
+			float c = 1.0f / sqrt(t*t + 1.0f);
+			float s = c * t;
+			m11 -= t * m12;
+			m22 += t * m12;
+			m12 = 0.0f;
+
+			float tmp = c * m13 - s * m23;
+			m23 = s * m13 + c * m23;
+			m13 = tmp;
+
+			for(int i = 0; i < 3; ++i)
+			{
+				float tmp = c * r[0][i] - s * r[1][i];
+				r[1][i] = s * r[0][i] + c * r[1][i];
+				r[0][i] = tmp;
+			}
+		}
+
+		if(m13 != 0.0f)
+		{
+			float u = (m33 - m11) * 0.5f / m13;
+			float u2 = u * u;
+			float u2p1 = u2 + 1.0f;
+			float t = (u2p1 != u2) ?
+					((u < 0.0f) ? -1.0f : 1.0f)*(sqrt(u2p1) - absT(u))
+					: 0.5f / u;
+			float c = 1.0f / sqrt(t * t + 1.0f);
+			float s = c * t;
+
+			m11 -= t * m13;
+			m33 += t * m13;
+			m13 = 0.0f;
+
+			float tmp = c * m12 - s * m23;
+			m23 = s * m12 + c * m23;
+			m12 = tmp;
+
+			for(int i = 0; i < 3; ++i)
+			{
+				float tmp = c * r[0][i] - s * r[2][i];
+				r[2][i] = s * r[0][i] + c * r[2][i];
+				r[0][i] = tmp;
+			}
+		}
+
+		if(m23 != 0.0f)
+		{
+			float u = (m33 - m22) * 0.5f / m23;
+			float u2 = u * u;
+			float u2p1 = u2 + 1.0f;
+			float t = (u2p1 != u2) ?
+					((u < 0.0f) ? -1.0f : 1.0f) * (sqrt(u2p1) - absT(u)) :
+					0.5f / u;
+			float c = 1.0f / sqrt(t * t + 1.0f);
+			float s = c * t;
+
+			m22 -= t * m23;
+			m33 += t * m23;
+			m23 = 0.0f;
+
+			for(int i = 0; i < 3; ++i)
+			{
+				float tmp = c * r[1][i] - s * r[2][i];
+				r[2][i] = s * r[1][i] + c * r[2][i];
+				r[1][i] = tmp;
+			}
+		}
+	}
+
+	eigenVals[0] = m11;
+	eigenVals[1] = m22;
+	eigenVals[2] = m33;
+
+	return r;
+}
 }
 
 #endif /* LJUTILMATRIX_H_ */
