@@ -19,6 +19,7 @@ public:
 	static WORDS Split(const string& line);
 	static int StrToInt(const string& str);
 	static float StrToFloat(const string& str);
+	static string IntToStr(int n);
 };//~LJStringUtil
 
 class LJStringTokenizer

@@ -34,6 +34,35 @@ float LJStringUtil::StrToFloat(const string& str)
 		return GetWhole(str, 0, m-1) + GetFraction(str, m+1, n-1);
 }
 
+string LJStringUtil::IntToStr(int n)
+{
+	int m = n;
+	bool neg = false;
+	if(n < 0)
+	{
+		m = -n;
+		neg = true;
+	}
+	string str;
+	do {
+		str.push_back('0' + m%10);
+		m /= 10;
+	} while(m != 0);
+	if(neg)
+	{
+		str.push_back('-');
+	}
+	string ret;
+	string::iterator it = str.end();
+	--it;
+	while(it >= str.begin())
+	{
+		ret.push_back(*it);
+		--it;
+	}
+	return ret;
+}
+
 WORDS LJStringUtil::Split(const string& line)
 {
 	WORDS words;
