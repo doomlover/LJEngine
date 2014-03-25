@@ -38,12 +38,7 @@ void LJRenderer::Release(void)
 	if(m_pDevice)
 	{
 		RELEASERENDERDEVICE _ReleaseRenderDevice = 0;
-#ifdef _LJ_WIN32
-		_ReleaseRenderDevice = (RELEASERENDERDEVICE) GetProcAddress(m_hDLL, "ReleaseRenderDevice");
-#endif
-#ifdef _LJ_LINUX
-		_ReleaseRenderDevice = (RELEASERENDERDEVICE) dlsym(m_hDLL, "ReleaseRenderDevice");
-#endif
+		_ReleaseRenderDevice = (RELEASERENDERDEVICE)LJGetProcAddress("ReleaseRenderDevice");
 		hr = _ReleaseRenderDevice(&m_pDevice);
 		if(LJFailed(hr))
 		{
